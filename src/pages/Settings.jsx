@@ -65,6 +65,10 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [localBudget, setLocalBudget] = useState(settings.monthlyBudget ?? 5000);
   const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | 'done' | 'error'
   const [exportMonth, setExportMonth] = useState('all');
+  const [driveStatus, setDriveStatus] = useState(null); // null | 'backing-up' | 'done' | 'error'
+  const [lastBackupDate, setLastBackupDate] = useState(() => {
+    try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
+  });
 
   const exportMonthOptions = useMemo(() => {
     const months = [...new Set((allExpenses ?? []).map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
@@ -121,6 +125,69 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
     setExportStatus('done');
     setTimeout(() => setExportStatus(null), 2000);
   };
+  const handleDriveBackup = () => {
+    if (!window.google?.accounts?.oauth2) { setDriveStatus('error'); return; }
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: async (response) => {
+        if (response.error) { setDriveStatus('error'); setTimeout(() => setDriveStatus(null), 3000); return; }
+        setDriveStatus('backing-up');
+        const token = response.access_token;
+        const backup = {
+          exportedAt: new Date().toISOString(),
+          version: 1,
+          expenses: allExpenses ?? [],
+          settings,
+        };
+        const content = JSON.stringify(backup, null, 2);
+        const filename = 'FamilyLedger_backup.json';
+        try {
+          const searchRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q=name%3D'${filename}'%20and%20trashed%3Dfalse&fields=files(id)`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const { files } = await searchRes.json();
+          const boundary = 'fl_backup_boundary';
+          const body = [
+            `--${boundary}`,
+            'Content-Type: application/json; charset=UTF-8',
+            '',
+            JSON.stringify({ name: filename, mimeType: 'application/json' }),
+            `--${boundary}`,
+            'Content-Type: application/json',
+            '',
+            content,
+            `--${boundary}--`,
+          ].join('\r\n');
+          const isUpdate = files?.length > 0;
+          const url = isUpdate
+            ? `https://www.googleapis.com/upload/drive/v3/files/${files[0].id}?uploadType=multipart`
+            : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+          const res = await fetch(url, {
+            method: isUpdate ? 'PATCH' : 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': `multipart/related; boundary=${boundary}`,
+            },
+            body,
+          });
+          if (!res.ok) throw new Error('Upload failed');
+          const now = new Date().toISOString();
+          try { localStorage.setItem('fl_last_drive_backup', now); } catch {}
+          setLastBackupDate(now);
+          setDriveStatus('done');
+          setTimeout(() => setDriveStatus(null), 3000);
+        } catch {
+          setDriveStatus('error');
+          setTimeout(() => setDriveStatus(null), 3000);
+        }
+      },
+    });
+    tokenClient.requestAccessToken({ prompt: '' });
+  };
+
   // Keep the input in step when shared settings update from the other phone
   const [syncedBudget, setSyncedBudget] = useState(settings.monthlyBudget);
   if (settings.monthlyBudget !== syncedBudget) {
@@ -650,6 +717,37 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
           </button>
         </div>
       </div>
+
+      {/* ── Drive Backup ─────────────────────────────── */}
+      {profile?.email === 'samshadnc@gmail.com' && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 pt-4 pb-2">
+            <p className="text-sm font-bold text-gray-900">Google Drive Backup</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {lastBackupDate
+                ? `Last backup: ${new Date(lastBackupDate).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}`
+                : 'Backs up all expenses + settings to your Drive'}
+            </p>
+          </div>
+          <div className="px-5 pb-4">
+            <button
+              onClick={handleDriveBackup}
+              disabled={driveStatus === 'backing-up'}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-50 text-green-700 font-semibold text-sm active:opacity-70 transition-opacity disabled:opacity-50"
+            >
+              {driveStatus === 'backing-up' ? (
+                <span className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                </svg>
+              )}
+              {driveStatus === 'done' ? 'Backed up!' : driveStatus === 'error' ? 'Backup failed' : 'Back up to Drive'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Logout ───────────────────────────────────── */}
       {!isDemo && (

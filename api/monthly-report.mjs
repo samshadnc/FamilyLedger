@@ -2,7 +2,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { Resend } from 'resend';
 
-const REPORT_EMAIL = 'samshadnc@gmail.com';
+const REPORT_EMAILS = ['samshadnc@gmail.com', 'msahla99@gmail.com'];
 
 function getAdminApp() {
   if (getApps().length) return getApps()[0];
@@ -195,7 +195,7 @@ export default async function handler(req, res) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({
       from: 'FamilyLedger <onboarding@resend.dev>',
-      to: REPORT_EMAIL,
+      to: REPORT_EMAILS,
       subject: `FamilyLedger — ${label} · S$${total.toFixed(2)}`,
       html,
       attachments: [{

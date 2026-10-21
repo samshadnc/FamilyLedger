@@ -483,7 +483,7 @@ function TrendsTab({ allExpenses, currentMonth }) {
   const months = useMemo(() => {
     const result = [];
     const [y, m] = currentMonth.split('-').map(Number);
-    for (let i = 11; i >= 0; i--) {
+    for (let i = 23; i >= 0; i--) {
       const d = new Date(y, m - 1 - i);
       result.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
@@ -516,15 +516,18 @@ function TrendsTab({ allExpenses, currentMonth }) {
   const monthTotal = monthlyTotals[selectedMonth] ?? 0;
   const maxTotal = Math.max(...Object.values(monthlyTotals), 1);
   const barScrollRef = useRef(null);
-  const BAR_SLOT = 44;
+  const BAR_SLOT = 33;
 
-  // Scroll to current month on first render
-  const didScroll = useRef(false);
-  if (!didScroll.current && barScrollRef.current) {
-    const idx = months.indexOf(currentMonth);
-    if (idx >= 0) barScrollRef.current.scrollLeft = Math.max(0, idx * BAR_SLOT - 80);
-    didScroll.current = true;
-  }
+  // Scroll so last 12 months are in view after mount
+  useEffect(() => {
+    if (barScrollRef.current) {
+      const idx = months.indexOf(currentMonth);
+      if (idx >= 0) {
+        const scrollTo = Math.max(0, (idx - 11) * BAR_SLOT);
+        barScrollRef.current.scrollLeft = scrollTo;
+      }
+    }
+  }, []);
 
   return (
     <div className="px-4 space-y-3">
@@ -540,7 +543,7 @@ function TrendsTab({ allExpenses, currentMonth }) {
           className="overflow-x-auto px-3 pb-4"
           style={{ scrollbarWidth: 'none' }}
         >
-          <div className="flex items-end gap-1.5" style={{ minWidth: months.length * 44, height: 180 }}>
+          <div className="flex items-end gap-1" style={{ minWidth: months.length * BAR_SLOT, height: 180 }}>
             {months.map(ym => {
               const total = monthlyTotals[ym] ?? 0;
               const barH = total > 0 ? Math.max((total / maxTotal) * 130, 12) : 6;
@@ -549,17 +552,17 @@ function TrendsTab({ allExpenses, currentMonth }) {
                 <button
                   key={ym}
                   onClick={() => setSelectedMonth(ym)}
-                  className="flex flex-col items-center justify-end flex-shrink-0 rounded-xl transition-colors"
-                  style={{ width: 40, height: 170, paddingBottom: 4, background: isSelected ? '#e5e7eb' : 'transparent' }}
+                  className="flex flex-col items-center justify-end flex-shrink-0 rounded-lg transition-colors"
+                  style={{ width: 29, height: 170, paddingBottom: 4, background: isSelected ? '#e5e7eb' : 'transparent' }}
                 >
-                  <p className="text-[9px] font-semibold mb-1" style={{ color: total > 0 ? '#374151' : '#d1d5db' }}>
+                  <p className="text-[8px] font-semibold mb-1" style={{ color: total > 0 ? '#374151' : '#d1d5db' }}>
                     {total > 0 ? fmtK(total) : '—'}
                   </p>
                   <div
-                    className="w-5 rounded-t-lg transition-all"
+                    className="w-3.5 rounded-t-md transition-all"
                     style={{ height: barH, background: isSelected ? '#4F46E5' : total > 0 ? '#a5b4fc' : '#e5e7eb' }}
                   />
-                  <p className="text-[10px] mt-1.5 font-medium" style={{ color: isSelected ? '#374151' : '#9ca3af' }}>
+                  <p className="text-[9px] mt-1 font-medium" style={{ color: isSelected ? '#374151' : '#9ca3af' }}>
                     {shortMonth(ym)}
                   </p>
                 </button>

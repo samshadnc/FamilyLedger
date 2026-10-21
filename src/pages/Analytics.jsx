@@ -1,0 +1,321 @@
+import { useMemo, useState } from 'react';
+import { getCategoryById, getBankBrand } from '../constants';
+import BankBadge from '../components/BankBadge';
+
+export default function Analytics({ allExpenses, currentMonth, accountMap }) {
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+
+  const data = useMemo(() => {
+    // Last 12 months oldest → newest
+    const [y, m] = currentMonth.split('-').map(Number);
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(y, m - 1 - i);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+
+    const allExp = (allExpenses ?? []).filter(e => e.type !== 'income');
+    const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+
+    // Monthly totals
+    const monthTotals = months.map(ym => ({
+      ym,
+      total: allExp.filter(e => e.date.startsWith(ym)).reduce((s, e) => s + sgdVal(e), 0),
+    }));
+
+    const thisMonth = monthTotals[monthTotals.length - 1];
+    const lastMonth = monthTotals[monthTotals.length - 2];
+    const momChange = lastMonth?.total > 0
+      ? ((thisMonth.total - lastMonth.total) / lastMonth.total) * 100
+      : null;
+
+    // Per-person 6-month totals
+    const persons = [...new Set(allExp.map(e => e.addedByName).filter(Boolean))].sort();
+    const personMonthly = persons.map(name => ({
+      name,
+      monthly: months.map(ym =>
+        allExp.filter(e => e.date.startsWith(ym) && e.addedByName === name).reduce((s, e) => s + sgdVal(e), 0)
+      ),
+    }));
+
+    // Account breakdown grouped by person
+    const personAccMap = {};
+    allExp.filter(e => months.some(ym => e.date.startsWith(ym))).forEach(e => {
+      if (!e.account || !e.addedByName) return;
+      if (!personAccMap[e.addedByName]) personAccMap[e.addedByName] = {};
+      personAccMap[e.addedByName][e.account] = (personAccMap[e.addedByName][e.account] ?? 0) + sgdVal(e);
+    });
+    const accountsByPerson = Object.entries(personAccMap).sort(([a], [b]) => a.localeCompare(b)).map(([person, accMap]) => ({
+      person,
+      accounts: Object.entries(accMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([id, total]) => ({ id, label: accountMap?.[id] ?? id, total })),
+      personTotal: Object.values(accMap).reduce((s, v) => s + v, 0),
+    }));
+    const maxAcc = Math.max(...accountsByPerson.flatMap(p => p.accounts.map(a => a.total)), 1);
+
+    // Per-tag 6-month totals
+    const allTags = [...new Set(
+      allExp.flatMap(e => Array.isArray(e.tags) ? e.tags : []).filter(Boolean)
+    )].sort();
+    const tagMonthly = allTags.map(tag => {
+      const monthly = months.map(ym =>
+        allExp
+          .filter(e => e.date.startsWith(ym) && Array.isArray(e.tags) && e.tags.includes(tag))
+          .reduce((s, e) => s + sgdVal(e), 0)
+      );
+      const total6m = monthly.reduce((s, v) => s + v, 0);
+      return { tag, monthly, total6m };
+    }).filter(t => t.total6m > 0).sort((a, b) => b.total6m - a.total6m);
+
+    // Top categories for selected month
+    const catMap = {};
+    allExp.filter(e => e.date.startsWith(selectedMonth)).forEach(e => {
+      catMap[e.category] = (catMap[e.category] ?? 0) + sgdVal(e);
+    });
+    const topCats = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id, amt]) => ({ id, amt }));
+
+    const thisMonthTotal = thisMonth.total;
+
+    return { months, monthTotals, thisMonth, lastMonth, momChange, personMonthly, tagMonthly, accountsByPerson, topCats, thisMonthTotal, maxAcc };
+  }, [allExpenses, currentMonth, selectedMonth, accountMap]);
+
+  return (
+    <div className="pb-24 bg-[#ECEDF0] min-h-screen">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3">
+        <h1 className="text-xl font-bold text-gray-900">Analytics</h1>
+        <p className="text-xs text-gray-400 mt-0.5">{formatMonthFull(selectedMonth)} · last 12 months</p>
+      </div>
+
+      {/* ── Month-over-Month ─────────────────────────────── */}
+      <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Month over Month</p>
+        <div className="flex items-center gap-4">
+          <div className="flex-1 p-3 bg-gray-50 rounded-xl text-center">
+            <p className="text-[11px] text-gray-400 mb-1">{shortMonth(data.lastMonth?.ym)}</p>
+            <p className="text-lg font-bold text-gray-900">S${fmt(data.lastMonth?.total ?? 0)}</p>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            {data.momChange !== null ? (
+              <>
+                <span className={`text-xl font-bold ${data.momChange <= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {data.momChange <= 0 ? '↓' : '↑'}
+                </span>
+                <span className={`text-xs font-semibold ${data.momChange <= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {Math.abs(data.momChange).toFixed(1)}%
+                </span>
+              </>
+            ) : <span className="text-gray-300 text-lg">→</span>}
+          </div>
+          <div className="flex-1 p-3 bg-indigo-50 rounded-xl text-center border-2 border-indigo-100">
+            <p className="text-[11px] text-indigo-400 mb-1">{shortMonth(data.thisMonth?.ym)} (now)</p>
+            <p className="text-lg font-bold text-indigo-700">S${fmt(data.thisMonth?.total ?? 0)}</p>
+          </div>
+        </div>
+
+        {/* 6-month mini bars — tappable */}
+        <div className="flex items-end gap-1.5 mt-4 h-16">
+          {data.monthTotals.map(({ ym, total }) => {
+            const maxT = Math.max(...data.monthTotals.map(m => m.total), 1);
+            const h = total > 0 ? Math.max((total / maxT) * 44, 4) : 3;
+            const isSelected = ym === selectedMonth;
+            return (
+              <button
+                key={ym}
+                onClick={() => setSelectedMonth(ym)}
+                className="flex-1 flex flex-col items-center gap-1 rounded-lg pb-0.5 active:opacity-60 transition-opacity"
+                style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
+              >
+                <div
+                  className="w-full rounded-t-md"
+                  style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
+                />
+                <p className="text-[9px] font-medium" style={{ color: isSelected ? '#4F46E5' : '#9ca3af' }}>
+                  {shortMonth(ym)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-center text-gray-300 mt-1">Tap a bar to view that month's breakdown</p>
+      </div>
+
+      {/* ── Per-Person Trend ─────────────────────────────── */}
+      {data.personMonthly.length > 0 && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Per Person · 12 months</p>
+          {data.personMonthly.map(({ name, monthly }) => {
+            const maxP = Math.max(...monthly, 1);
+            const total6m = monthly.reduce((s, v) => s + v, 0);
+            return (
+              <div key={name} className="mb-4 last:mb-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-sm font-semibold text-gray-800">{name}</p>
+                  <p className="text-xs font-semibold text-gray-500">S${fmt(total6m)} total</p>
+                </div>
+                <div className="flex items-end gap-1 h-10">
+                  {monthly.map((amt, i) => {
+                    const h = amt > 0 ? Math.max((amt / maxP) * 36, 3) : 3;
+                    const ym = data.months[i];
+                    const isSelected = ym === selectedMonth;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedMonth(ym)}
+                        className="flex-1 flex flex-col items-center gap-0.5 rounded active:opacity-60 transition-opacity"
+                        style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
+                      >
+                        <div
+                          className="w-full rounded-t-sm"
+                          style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
+                        />
+                        <p className="text-[8px]" style={{ color: isSelected ? '#4F46E5' : '#d1d5db' }}>
+                          {shortMonth(ym)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Per-Tag Trend ────────────────────────────────── */}
+      {data.tagMonthly.length > 0 && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Per Tag · 12 months</p>
+          {data.tagMonthly.map(({ tag, monthly, total6m }) => {
+            const maxT = Math.max(...monthly, 1);
+            return (
+              <div key={tag} className="mb-4 last:mb-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
+                    <p className="text-sm font-semibold text-gray-800">{tag}</p>
+                  </div>
+                  <p className="text-xs font-semibold text-gray-500">S${fmt(total6m)} total</p>
+                </div>
+                <div className="flex items-end gap-1 h-10">
+                  {monthly.map((amt, i) => {
+                    const h = amt > 0 ? Math.max((amt / maxT) * 36, 3) : 3;
+                    const ym = data.months[i];
+                    const isSelected = ym === selectedMonth;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedMonth(ym)}
+                        className="flex-1 flex flex-col items-center gap-0.5 rounded active:opacity-60 transition-opacity"
+                        style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
+                      >
+                        <div
+                          className="w-full rounded-t-sm"
+                          style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
+                        />
+                        <p className="text-[8px]" style={{ color: isSelected ? '#4F46E5' : '#d1d5db' }}>
+                          {shortMonth(ym)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Account Breakdown ─────────────────────────────── */}
+      {data.accountsByPerson.length > 0 && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Account Breakdown · 12 months</p>
+          </div>
+          {data.accountsByPerson.map(({ person, accounts, personTotal }, pi) => (
+            <div key={person} className={pi > 0 ? 'border-t border-gray-100' : ''}>
+              <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{person}</p>
+                <p className="text-xs font-semibold text-gray-400">S${fmt(personTotal)}</p>
+              </div>
+              {accounts.map(({ id, label, total }) => {
+                const pct = data.maxAcc > 0 ? (total / data.maxAcc) * 100 : 0;
+                const brand = getBankBrand(label);
+                return (
+                  <div key={id} className="px-4 py-2.5 flex items-center gap-3">
+                    <BankBadge label={label} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{label}</p>
+                      <div className="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: brand.bg }} />
+                      </div>
+                    </div>
+                    <p className="text-sm font-bold text-gray-900 flex-shrink-0">S${fmt(total)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <div className="h-3" />
+        </div>
+      )}
+
+      {/* ── Top Categories this month ────────────────────── */}
+      {data.topCats.length > 0 && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              Top Categories · {shortMonth(selectedMonth)}
+            </p>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {data.topCats.map(({ id, amt }, i) => {
+              const cat = getCategoryById(id);
+              const pct = data.thisMonthTotal > 0 ? (amt / data.thisMonthTotal) * 100 : 0;
+              return (
+                <div key={id} className="px-4 py-3 flex items-center gap-3">
+                  <span className="text-gray-300 text-xs font-bold w-4 flex-shrink-0">#{i + 1}</span>
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ background: cat.bg }}
+                  >
+                    {cat.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{cat.label}</p>
+                    <div className="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: cat.color }} />
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-gray-900">S${fmt(amt)}</p>
+                    <p className="text-[10px] text-gray-400">{pct.toFixed(0)}%</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="h-3" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('en-SG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function shortMonth(ym) {
+  if (!ym) return '';
+  const [y, m] = ym.split('-');
+  return new Date(y, m - 1).toLocaleString('en-SG', { month: 'short' });
+}
+function formatMonthFull(ym) {
+  if (!ym) return '';
+  const [y, m] = ym.split('-');
+  return new Date(y, m - 1).toLocaleString('en-SG', { month: 'long', year: 'numeric' });
+}

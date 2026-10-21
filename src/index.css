@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Color tokens ─────────────────────────────────────── */
+:root {
+  --app-bg:      #ECEDF0;
+  --card-bg:     #ffffff;
+  --card-bg2:    #f9fafb;
+  --border:      #f3f4f6;
+  --border2:     #e5e7eb;
+  --text-1:      #111827;
+  --text-2:      #374151;
+  --text-3:      #6b7280;
+  --text-4:      #9ca3af;
+  --input-bg:    #f3f4f6;
+  --nav-bg:      #ffffff;
+}
+
+.dark {
+  --app-bg:      #0f172a;
+  --card-bg:     #1e293b;
+  --card-bg2:    #1e293b;
+  --border:      #334155;
+  --border2:     #475569;
+  --text-1:      #f1f5f9;
+  --text-2:      #cbd5e1;
+  --text-3:      #94a3b8;
+  --text-4:      #64748b;
+  --input-bg:    #334155;
+  --nav-bg:      #1e293b;
+}
+
+@layer base {
+  html {
+    background: var(--app-bg);
+    color: var(--text-1);
+    color-scheme: light;
+  }
+  .dark html { color-scheme: dark; }
+  body { @apply font-sans antialiased; }
+}
+
+/* ── Apply tokens to common patterns ─────────────────── */
+/* App background */
+.dark .bg-\[\#ECEDF0\]  { background: var(--app-bg) !important; }
+
+/* White cards → dark cards */
+.dark .bg-white         { background: var(--card-bg) !important; }
+.dark .bg-gray-50       { background: var(--card-bg2) !important; }
+.dark .bg-gray-100      { background: #334155 !important; }
+.dark .bg-gray-200      { background: #475569 !important; }
+
+/* Text */
+.dark .text-gray-900    { color: var(--text-1) !important; }
+.dark .text-gray-800    { color: var(--text-2) !important; }
+.dark .text-gray-700    { color: var(--text-2) !important; }
+.dark .text-gray-600    { color: var(--text-3) !important; }
+.dark .text-gray-500    { color: var(--text-3) !important; }
+.dark .text-gray-400    { color: var(--text-4) !important; }
+.dark .text-gray-300    { color: #475569 !important; }
+
+/* Borders & dividers */
+.dark .border-gray-100  { border-color: var(--border) !important; }
+.dark .border-gray-200  { border-color: var(--border2) !important; }
+.dark .divide-gray-50 > * + * { border-color: var(--border) !important; }
+
+/* Inputs & selects */
+.dark input,
+.dark select,
+.dark textarea {
+  background: var(--input-bg) !important;
+  color: var(--text-1) !important;
+  border-color: var(--border2) !important;
+}
+.dark input::placeholder { color: var(--text-4) !important; }
+
+/* Modals */
+.dark .rounded-t-3xl.bg-white,
+.dark .rounded-2xl.bg-white  { background: var(--card-bg) !important; }
+
+/* Shadows stay, just lightened in dark */
+.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.4) !important; }
+.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6) !important; }
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}

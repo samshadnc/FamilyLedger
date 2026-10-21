@@ -550,22 +550,19 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
   const barScrollRef = useRef(null);
   const BAR_SLOT = 33;
 
-  // Scroll so last 12 months are in view after mount.
-  // Double-RAF ensures the browser has painted and the scroll container
-  // has its real clientWidth before we set scrollLeft (plain setTimeout
-  // is too early on Android).
+  // Scroll so the current month bar is visible at the right edge on mount.
+  // scrollIntoView is more reliable than setting scrollLeft on Android Chrome.
   useEffect(() => {
     const scroll = () => {
-      if (barScrollRef.current) {
-        const idx = months.indexOf(currentMonth);
-        if (idx >= 0) {
-          barScrollRef.current.scrollLeft = Math.max(0, (idx - 11) * BAR_SLOT);
-        }
+      if (!barScrollRef.current) return;
+      const currentBar = barScrollRef.current.querySelector('[data-current="true"]');
+      if (currentBar) {
+        currentBar.scrollIntoView({ behavior: 'instant', inline: 'end', block: 'nearest' });
       }
     };
     let raf1, raf2;
     raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(scroll); });
-    const fallback = setTimeout(scroll, 600); // safety net for slow devices
+    const fallback = setTimeout(scroll, 800);
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
@@ -595,6 +592,7 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
               return (
                 <button
                   key={ym}
+                  data-current={ym === currentMonth ? 'true' : undefined}
                   onClick={() => onMonthSelect(ym)}
                   className="flex flex-col items-center justify-end flex-shrink-0 rounded-lg transition-colors"
                   style={{ width: 29, height: 140, paddingBottom: 4, background: isSelected ? '#e5e7eb' : 'transparent' }}

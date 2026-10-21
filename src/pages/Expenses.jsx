@@ -313,15 +313,13 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                           <button
                             type="button"
                             onClick={e => { e.stopPropagation(); onAccountSelect?.(exp.account); }}
-                            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full font-bold text-[11px] transition-opacity active:opacity-70"
+                            className="flex items-center p-0.5 rounded-full transition-opacity active:opacity-70"
                             style={{
                               background: isActive ? brand.bg : `${brand.bg}18`,
-                              color: isActive ? brand.text : brand.bg,
                               border: `1px solid ${brand.bg}44`,
                             }}
                           >
                             <BankBadge label={accountMap[exp.account]} size="chip" />
-                            {accountMap[exp.account]}
                           </button>
                         );
                       })()}

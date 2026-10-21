@@ -2,7 +2,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { Resend } from 'resend';
 
-const REPORT_EMAILS = ['samshadnc@gmail.com', 'msahla99@gmail.com'];
+const REPORT_EMAILS = ['samshadnc@gmail.com'];
 
 function getAdminApp() {
   if (getApps().length) return getApps()[0];

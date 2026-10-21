@@ -529,7 +529,7 @@ export default function App() {
             categoryId={selectedCategory}
             currentMonth={month}
             isDemo={isDemo}
-            allExpenses={isDemo ? DEMO_ALL_EXPENSES : null}
+            allExpenses={isDemo ? DEMO_ALL_EXPENSES : allExpenses}
             onBack={() => setSelectedCategory(null)}
           />
         ) : tab === 'dashboard' ? (

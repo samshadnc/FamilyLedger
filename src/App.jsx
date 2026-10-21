@@ -392,8 +392,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Month nav bar — hidden on dashboard, shown on expenses/analytics */}
-      {(tab !== 'dashboard' || showSettings) && (
+      {/* Month nav bar — hidden on dashboard and settings, shown on expenses/analytics */}
+      {tab !== 'dashboard' && !showSettings && (
         <header className={`fixed left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-[#ECEDF0] border-b border-gray-200 ${isDemo ? 'top-6' : 'top-0'}`}>
           <div className="flex items-center justify-between px-4 py-1">
             <button onClick={() => stepMonth(-1)} className="p-1 rounded-lg text-gray-500">
@@ -412,7 +412,7 @@ export default function App() {
       )}
 
       {/* Content */}
-      <main className={tab === 'dashboard' && !showSettings ? 'pt-0' : isDemo ? 'pt-[62px]' : 'pt-[30px]'}>
+      <main className={showSettings ? (isDemo ? 'pt-6' : 'pt-0') : tab === 'dashboard' ? 'pt-0' : isDemo ? 'pt-[62px]' : 'pt-[30px]'}>
         {loading ? (
           <div className="flex justify-center pt-20">
             <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />

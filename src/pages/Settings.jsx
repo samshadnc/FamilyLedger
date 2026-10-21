@@ -21,6 +21,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [editingCategory, setEditingCategory] = useState(null); // { id, label, icon }
   const [showAddPreset, setShowAddPreset] = useState(false);
   const [newPreset, setNewPreset] = useState({ name: '', amount: '', category: 'transport' });
+  const [localBudget, setLocalBudget] = useState(settings.monthlyBudget ?? 5000);
 
   const members = Object.keys(settings.accounts ?? {});
 
@@ -387,8 +388,10 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
             <input
               type="number"
               min="0"
-              value={settings.monthlyBudget ?? 5000}
-              onChange={e => onSave({ ...settings, monthlyBudget: parseFloat(e.target.value) || 0 })}
+              value={localBudget}
+              onChange={e => setLocalBudget(e.target.value)}
+              onBlur={() => onSave({ ...settings, monthlyBudget: parseFloat(localBudget) || 0 })}
+              onKeyDown={e => e.key === 'Enter' && onSave({ ...settings, monthlyBudget: parseFloat(localBudget) || 0 })}
               className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
           </div>

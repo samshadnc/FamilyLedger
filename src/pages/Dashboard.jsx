@@ -119,8 +119,30 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
   const offset = circ * (1 - pct / 100);
   const monthLabel = formatMonthFull(month);
 
+  const TABS = ['transactions', 'trends', 'categories'];
+  const touchStart = useRef(null);
+
+  const handleTouchStart = (e) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = TABS.indexOf(activeTab);
+    if (dx < 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]); // swipe left → next
+    if (dx > 0 && idx > 0) setActiveTab(TABS[idx - 1]);               // swipe right → prev
+  };
+
   return (
-    <div className="pb-24 bg-[#ECEDF0] min-h-screen">
+    <div
+      className="pb-24 bg-[#ECEDF0] min-h-screen"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
       <div className="px-5 pt-4 pb-3 flex items-center justify-between">
         <button

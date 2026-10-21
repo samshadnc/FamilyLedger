@@ -88,13 +88,11 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-@keyframes tabSlideRight {
-  from { opacity: 0.4; transform: translateX(28px); }
-  to   { opacity: 1;   transform: translateX(0);    }
-}
-@keyframes tabSlideLeft {
-  from { opacity: 0.4; transform: translateX(-28px); }
-  to   { opacity: 1;   transform: translateX(0);     }
-}
-.tab-slide-right { animation: tabSlideRight 0.22s ease-out; }
-.tab-slide-left  { animation: tabSlideLeft  0.22s ease-out; }
+@keyframes tabExitLeft   { from { transform: translateX(0);     } to { transform: translateX(-100%); } }
+@keyframes tabExitRight  { from { transform: translateX(0);     } to { transform: translateX(100%);  } }
+@keyframes tabEnterRight { from { transform: translateX(100%);  } to { transform: translateX(0);     } }
+@keyframes tabEnterLeft  { from { transform: translateX(-100%); } to { transform: translateX(0);     } }
+.tab-exit-left   { animation: tabExitLeft   0.28s ease-in-out forwards; }
+.tab-exit-right  { animation: tabExitRight  0.28s ease-in-out forwards; }
+.tab-enter-right { animation: tabEnterRight 0.28s ease-in-out; }
+.tab-enter-left  { animation: tabEnterLeft  0.28s ease-in-out; }

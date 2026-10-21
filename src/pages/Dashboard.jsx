@@ -121,7 +121,23 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
   const TABS = ['transactions', 'trends', 'categories'];
   const touchStart = useRef(null);
-  const [swipeDir, setSwipeDir] = useState(null); // 'left' | 'right' | null
+  const [swipeDir, setSwipeDir] = useState(null);
+  const [prevTab, setPrevTab] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimer = useRef(null);
+
+  const switchTabAnimated = (newTab, dir) => {
+    if (newTab === activeTab || isTransitioning) return;
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    setPrevTab(activeTab);
+    setSwipeDir(dir);
+    setActiveTab(newTab);
+    setIsTransitioning(true);
+    transitionTimer.current = setTimeout(() => {
+      setIsTransitioning(false);
+      setPrevTab(null);
+    }, 300);
+  };
 
   const handleTouchStart = (e) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -134,11 +150,17 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     touchStart.current = null;
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
     const idx = TABS.indexOf(activeTab);
-    if (dx < 0 && idx < TABS.length - 1) { setSwipeDir('left');  setActiveTab(TABS[idx + 1]); }
-    if (dx > 0 && idx > 0)               { setSwipeDir('right'); setActiveTab(TABS[idx - 1]); }
+    if (dx < 0 && idx < TABS.length - 1) switchTabAnimated(TABS[idx + 1], 'left');
+    if (dx > 0 && idx > 0)               switchTabAnimated(TABS[idx - 1], 'right');
   };
 
-  const handleTabTap = (id) => { setSwipeDir(null); setActiveTab(id); };
+  const handleTabTap = (id) => {
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    setIsTransitioning(false);
+    setPrevTab(null);
+    setSwipeDir(null);
+    setActiveTab(id);
+  };
 
   return (
     <div
@@ -370,17 +392,21 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         ))}
       </div>
 
-      {/* Tab content — key forces remount on tab change so animation replays */}
-      <div key={activeTab} className={swipeDir === 'left' ? 'tab-slide-right' : swipeDir === 'right' ? 'tab-slide-left' : ''}>
-        {activeTab === 'transactions' && (
-          <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />
+      {/* Tab content — old tab slides out while new tab slides in simultaneously */}
+      <div style={{ position: 'relative', overflowX: 'hidden' }}>
+        {isTransitioning && prevTab && (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 1 }}
+               className={swipeDir === 'left' ? 'tab-exit-left' : 'tab-exit-right'}>
+            {prevTab === 'transactions' && <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />}
+            {prevTab === 'trends' && <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />}
+            {prevTab === 'categories' && <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />}
+          </div>
         )}
-        {activeTab === 'trends' && (
-          <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />
-        )}
-        {activeTab === 'categories' && (
-          <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />
-        )}
+        <div className={isTransitioning ? (swipeDir === 'left' ? 'tab-enter-right' : 'tab-enter-left') : ''}>
+          {activeTab === 'transactions' && <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />}
+          {activeTab === 'trends' && <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />}
+          {activeTab === 'categories' && <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />}
+        </div>
       </div>
     </div>
   );

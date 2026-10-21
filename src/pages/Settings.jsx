@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { db } from '../firebase';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById, presetButtonText } from '../constants';
 
@@ -135,10 +137,16 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         if (response.error) { setDriveStatus('error'); setTimeout(() => setDriveStatus(null), 3000); return; }
         setDriveStatus('backing-up');
         const token = response.access_token;
+        // Fetch ALL expenses (no date limit) on demand
+        let allData = [];
+        try {
+          const snap = await getDocs(query(collection(db, 'expenses'), orderBy('date', 'desc')));
+          allData = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+        } catch { allData = allExpenses ?? []; }
         const backup = {
           exportedAt: new Date().toISOString(),
           version: 1,
-          expenses: allExpenses ?? [],
+          expenses: allData,
           settings,
         };
         const content = JSON.stringify(backup, null, 2);

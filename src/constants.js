@@ -36,7 +36,7 @@ export const ACCOUNTS = {
   ],
 };
 
-export const DEFAULT_TAGS = ['Personal', 'Work', 'India Trip', 'Kids', 'Medical', 'Shared'];
+export const DEFAULT_TAGS = ['Samshad', 'Sahla', 'AdvancePurchase', 'Unbudgeted', 'India'];
 
 export const DEFAULT_PRESETS = {
   Samshad: [

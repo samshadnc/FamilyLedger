@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Large/unrelated files at project root
+*.apk
+/sahla.png
+/samshad.png
+/"WhatsApp Image*"
+
 # Environment variables (never commit these)
 .env
 .env.local

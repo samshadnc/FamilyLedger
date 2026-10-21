@@ -136,26 +136,6 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         </div>
       )}
 
-      {/* ── Monthly Budget ────────────────────────────── */}
-      <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-gray-900">Monthly Budget</p>
-            <p className="text-xs text-gray-400 mt-0.5">Total household budget per month</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500">S$</span>
-            <input
-              type="number"
-              min="0"
-              value={settings.monthlyBudget ?? 5000}
-              onChange={e => onSave({ ...settings, monthlyBudget: parseFloat(e.target.value) || 0 })}
-              className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* ── Appearance ───────────────────────────────── */}
       <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
         <div className="px-5 py-4 flex items-center justify-between">
@@ -398,7 +378,20 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
       <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="px-5 pt-4 pb-2 flex items-center justify-between">
           <p className="text-sm font-bold text-gray-900">Categories</p>
-          <span className="text-xs text-gray-400">tap to rename</span>
+          <span className="text-xs text-gray-400">tap to edit</span>
+        </div>
+        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 bg-gray-50">
+          <p className="text-sm font-semibold text-gray-700">Total Monthly Budget</p>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500">S$</span>
+            <input
+              type="number"
+              min="0"
+              value={settings.monthlyBudget ?? 5000}
+              onChange={e => onSave({ ...settings, monthlyBudget: parseFloat(e.target.value) || 0 })}
+              className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
         </div>
 
         <div className="divide-y divide-gray-50">

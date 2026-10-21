@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  collection, addDoc, updateDoc, deleteDoc,
+  collection, addDoc, updateDoc, deleteDoc, setDoc,
   doc, query, where, orderBy, onSnapshot, serverTimestamp,
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -14,7 +14,7 @@ import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import ExpenseModal from './components/ExpenseModal';
 import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
-import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET } from './constants';
+import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
 
@@ -131,6 +131,41 @@ const DEMO_PROFILES = {
   Sahla:   { uid: 'u2', email: 'sahla@test.com',    displayName: 'Sahla'   },
 };
 
+// Fill in defaults so older saved settings always have every field (e.g. category budgets)
+function normalizeSettings(parsed) {
+  const catDefaults = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
+  const mergedCats = (parsed.categories ?? CATEGORIES).map(c => ({
+    ...catDefaults[c.id],
+    ...c,
+    budget: c.budget ?? catDefaults[c.id]?.budget ?? 0,
+  }));
+  return {
+    tags: DEFAULT_TAGS, accounts: ACCOUNTS, allowEditOthers: false, presets: DEFAULT_PRESETS,
+    ...parsed,
+    categories: mergedCats,
+  };
+}
+
+// Firestore shape: category budgets live in their own field so security rules can lock them
+// to the owner while category names/icons stay editable by everyone
+function toShared(settings) {
+  const { categories = [], ...rest } = settings;
+  const shared = {
+    ...rest,
+    categories:      categories.map(({ budget: _budget, ...c }) => c),
+    categoryBudgets: Object.fromEntries(categories.map(c => [c.id, c.budget ?? 0])),
+  };
+  return JSON.parse(JSON.stringify(shared)); // Firestore rejects undefined values
+}
+
+function fromShared(data) {
+  const { categoryBudgets = {}, categories, ...rest } = data;
+  return {
+    ...rest,
+    ...(categories && { categories: categories.map(c => ({ ...c, budget: categoryBudgets[c.id] ?? 0 })) }),
+  };
+}
+
 function currentYM() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -177,33 +212,72 @@ export default function App() {
     setSelectedCategory(null);
   };
 
-  // Settings: tags, accounts, categories — persisted in localStorage
-  const [settings, setSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('fl_settings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Merge saved categories with defaults so new fields (budget) are always present
-        const catDefaults = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
-        const mergedCats = (parsed.categories ?? CATEGORIES).map(c => ({
-          ...catDefaults[c.id],
-          ...c,
-          budget: c.budget ?? catDefaults[c.id]?.budget ?? 0,
-        }));
-        return { allowEditOthers: false, presets: DEFAULT_PRESETS, accounts: ACCOUNTS, ...parsed, categories: mergedCats };
-      }
-    } catch {}
-    return { tags: DEFAULT_TAGS, accounts: ACCOUNTS, categories: CATEGORIES, allowEditOthers: false, presets: DEFAULT_PRESETS };
-  });
-
-  const handleSaveSettings = (newSettings) => {
-    setSettings(newSettings);
-    try { localStorage.setItem('fl_settings', JSON.stringify(newSettings)); } catch {}
-  };
-
   // Demo mode: no Firebase creds
   const isDemo = !import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID === 'dummy-project';
   const profile = isDemo ? DEMO_PROFILES[demoUser] : realProfile;
+
+  // Settings: tags, accounts, categories — shared via Firestore (household/settings),
+  // cached in localStorage so the app still starts offline
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('fl_settings');
+      if (saved) return normalizeSettings(JSON.parse(saved));
+    } catch {}
+    return normalizeSettings({});
+  });
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+  const sharedExistsRef = useRef(false); // true once household/settings is known to exist
+
+  const isSettingsOwner = profile?.displayName === SETTINGS_OWNER;
+
+  // Live-sync shared settings; the owner seeds the doc from this device if it doesn't exist yet
+  useEffect(() => {
+    if (isDemo || !user) return;
+    const ref = doc(db, 'household', 'settings');
+    return onSnapshot(ref, snap => {
+      if (snap.exists()) {
+        sharedExistsRef.current = true;
+        const next = normalizeSettings(fromShared(snap.data()));
+        setSettings(next);
+        try { localStorage.setItem('fl_settings', JSON.stringify(next)); } catch {}
+      } else if (isSettingsOwner) {
+        setDoc(ref, toShared(settingsRef.current)).catch(err => console.error('Failed to create shared settings', err));
+      }
+    }, err => console.error('Shared settings unavailable', err));
+  }, [user, isDemo, isSettingsOwner]);
+
+  const handleSaveSettings = (newSettings) => {
+    const prev = settingsRef.current;
+    // Only the owner can change budgets and the edit-others switch
+    const next = isSettingsOwner ? newSettings : {
+      ...newSettings,
+      monthlyBudget:   prev.monthlyBudget,
+      allowEditOthers: prev.allowEditOthers,
+      categories: newSettings.categories.map(c => ({
+        ...c,
+        budget: prev.categories.find(o => o.id === c.id)?.budget ?? c.budget,
+      })),
+    };
+    setSettings(next);
+    try { localStorage.setItem('fl_settings', JSON.stringify(next)); } catch {}
+    if (isDemo) return;
+
+    const ref = doc(db, 'household', 'settings');
+    if (!sharedExistsRef.current) {
+      // Doc not created yet — only the owner creates it
+      if (isSettingsOwner) setDoc(ref, toShared(next)).catch(err => console.error('Failed to save settings', err));
+      return;
+    }
+    const before = toShared(prev);
+    const after  = toShared(next);
+    const changed = Object.fromEntries(
+      Object.entries(after).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(before[k])),
+    );
+    if (Object.keys(changed).length) {
+      updateDoc(ref, changed).catch(err => console.error('Failed to save settings', err));
+    }
+  };
 
   const [allExpenses, setAllExpenses] = useState(isDemo ? DEMO_ALL_EXPENSES : []);
 
@@ -427,6 +501,7 @@ export default function App() {
             onToggleDark={toggleDark}
             onLogout={() => !isDemo && signOut(auth)}
             isDemo={isDemo}
+            isOwner={isSettingsOwner}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail

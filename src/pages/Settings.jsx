@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, X, Plus, Check, LogOut } from 'lucide-react';
+import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, getCategoryById } from '../constants';
 
 function AvatarImg({ name, size = 14 }) {
@@ -124,6 +124,13 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
           <ChevronLeft size={20} />
         </button>
         <h1 className="text-lg font-bold text-gray-900">Settings</h1>
+        <button
+          onClick={onToggleDark}
+          className="ml-auto w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-600 flex-shrink-0"
+          aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {dark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
       </div>
 
       {/* ── Profile card ─────────────────────────────── */}
@@ -139,19 +146,6 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
 
       {/* ── Appearance ───────────────────────────────── */}
       <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
-        <div className="px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-gray-900">Dark Mode</p>
-            <p className="text-xs text-gray-400 mt-0.5">Switch to dark theme</p>
-          </div>
-          <button
-            onClick={onToggleDark}
-            className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none ${dark ? 'bg-indigo-600' : 'bg-gray-200'}`}
-            aria-label="Toggle dark mode"
-          >
-            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${dark ? 'translate-x-6' : 'translate-x-0.5'}`} />
-          </button>
-        </div>
         <div className="px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-gray-900">Edit Others' Transactions</p>

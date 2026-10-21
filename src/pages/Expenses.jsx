@@ -396,7 +396,10 @@ function FilterChart({ breakdown, total }) {
 
 function groupByDate(expenses) {
   const map = {};
-  const sorted = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
+  const sorted = [...expenses].sort((a, b) => {
+    if (b.date !== a.date) return b.date.localeCompare(a.date);
+    return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+  });
   sorted.forEach(exp => {
     const label = formatDateLabel(exp.date);
     if (!map[label]) map[label] = [];

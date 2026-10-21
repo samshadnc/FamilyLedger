@@ -50,7 +50,10 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
     const recent = [...expenses]
       .filter(e => e.type !== 'income')
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => {
+        if (b.date !== a.date) return b.date.localeCompare(a.date);
+        return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+      })
       .slice(0, 8);
 
     // Always include all known members even if they have no expenses this month

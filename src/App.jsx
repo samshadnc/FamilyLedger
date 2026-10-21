@@ -190,7 +190,7 @@ export default function App() {
           ...c,
           budget: c.budget ?? catDefaults[c.id]?.budget ?? 0,
         }));
-        return { allowEditOthers: false, presets: DEFAULT_PRESETS, ...parsed, categories: mergedCats };
+        return { allowEditOthers: false, presets: DEFAULT_PRESETS, accounts: ACCOUNTS, ...parsed, categories: mergedCats };
       }
     } catch {}
     return { tags: DEFAULT_TAGS, accounts: ACCOUNTS, categories: CATEGORIES, allowEditOthers: false, presets: DEFAULT_PRESETS };
@@ -265,7 +265,12 @@ export default function App() {
 
     setLoading(true);
     const unsub = onSnapshot(q, (snap) => {
-      setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      docs.sort((a, b) => {
+        if (b.date !== a.date) return b.date.localeCompare(a.date);
+        return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
+      });
+      setExpenses(docs);
       setLoading(false);
     }, (err) => {
       console.error('Firestore error:', err);
@@ -287,7 +292,7 @@ export default function App() {
       orderBy('date', 'desc'),
     );
     const unsub = onSnapshot(q, (snap) => {
-      setAllExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setAllExpenses(snap.docs.map(d => ({ ...d.data(), id: d.id })));
     }, (err) => console.error('Trends listener error:', err));
     return unsub;
   }, [user, isDemo]);
@@ -341,7 +346,8 @@ export default function App() {
       setAllExpenses(prev => [newExp, ...prev]);
       return;
     }
-    addDoc(collection(db, 'expenses'), { ...newExp, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    const { id: _localId, ...newExpData } = newExp;
+    addDoc(collection(db, 'expenses'), { ...newExpData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   };
 
   const handleDelete = async (id) => {
@@ -439,7 +445,7 @@ export default function App() {
             profile={profile}
             budget={settings.monthlyBudget ?? 5000}
             categorySettings={settings.categories}
-            memberNames={Object.keys(settings.accounts)}
+            memberNames={Object.keys(settings.accounts ?? {})}
             onCategorySelect={setSelectedCategory}
             onOpenSettings={() => setShowSettings(true)}
             onTagSelect={handleTagSelect}

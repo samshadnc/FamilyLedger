@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronLeft, TrendingUp } from 'lucide-react';
 import { getCategoryById } from '../constants';
 
-export default function CategoryDetail({ categoryId, currentMonth, isDemo, allExpenses, onBack }) {
+export default function CategoryDetail({ categoryId, currentMonth, isDemo, allExpenses, onBack, onEdit }) {
   const cat = getCategoryById(categoryId);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
@@ -138,7 +138,7 @@ export default function CategoryDetail({ categoryId, currentMonth, isDemo, allEx
             {monthExpenses.map(exp => {
               const sym = exp.currency === 'INR' ? '₹' : 'S$';
               return (
-                <div key={exp.id} className="px-4 py-3.5 flex items-center gap-3">
+                <button key={exp.id} onClick={() => onEdit?.(exp)} className="w-full px-4 py-3.5 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors">
                   {/* Icon circle */}
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 shadow-sm"
@@ -149,7 +149,7 @@ export default function CategoryDetail({ categoryId, currentMonth, isDemo, allEx
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-900 uppercase truncate">
-                      {exp.note || cat.label}
+                      {exp.payee || cat.label}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cat.color }} />
@@ -166,7 +166,7 @@ export default function CategoryDetail({ categoryId, currentMonth, isDemo, allEx
                     </div>
                     <p className="text-[11px] text-gray-400">{friendlyDate(exp.date)}</p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

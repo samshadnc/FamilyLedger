@@ -531,6 +531,7 @@ export default function App() {
             isDemo={isDemo}
             allExpenses={isDemo ? DEMO_ALL_EXPENSES : allExpenses}
             onBack={() => setSelectedCategory(null)}
+            onEdit={(exp) => { setEditTarget(exp); setShowModal(true); }}
           />
         ) : tab === 'dashboard' ? (
           <Dashboard

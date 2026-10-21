@@ -291,7 +291,6 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                       <p className="text-sm font-semibold text-gray-900 truncate">{exp.note || cat.label}</p>
                     )}
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      {exp.payee && exp.note ? <span className="text-[11px] text-gray-400 truncate max-w-[130px]">{exp.note}</span> : null}
                       {exp.account && accountMap?.[exp.account] && (() => {
                         const brand = getBankBrand(accountMap[exp.account]);
                         const isActive = selectedAccount === exp.account;
@@ -309,6 +308,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                           </button>
                         );
                       })()}
+                      {exp.payee && exp.note ? <span className="text-[11px] text-gray-400 truncate max-w-[130px]">{exp.note}</span> : null}
                       {exp.tags?.length > 0
                         ? exp.tags.slice(0, 2).map(t => (
                             <button

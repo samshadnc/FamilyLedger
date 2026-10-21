@@ -40,7 +40,12 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   };
 
   // ── Accounts ──────────────────────────────────────────
+  const PROTECTED_ACCOUNTS = ['DBS', 'SBI'];
+  const isProtectedAccount = (acc) => PROTECTED_ACCOUNTS.includes(acc.label.trim().toUpperCase());
+
   const deleteAccount = (person, accId) => {
+    const acc = (settings.accounts[person] ?? []).find(a => a.id === accId);
+    if (acc && isProtectedAccount(acc)) return;
     const updated = { ...settings.accounts };
     updated[person] = updated[person].filter(a => a.id !== accId);
     onSave({ ...settings, accounts: updated });
@@ -321,12 +326,14 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
                 >
                   <span className="text-sm">{acc.icon}</span>
                   <span className="text-xs font-semibold text-gray-700">{acc.label}</span>
-                  <button
-                    onClick={() => deleteAccount(person, acc.id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors ml-1"
-                  >
-                    <X size={12} />
-                  </button>
+                  {!isProtectedAccount(acc) && (
+                    <button
+                      onClick={() => deleteAccount(person, acc.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors ml-1"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

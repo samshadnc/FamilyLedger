@@ -96,7 +96,7 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
     setOcrResult(null);
     runOCR(file, accountsSource)
       .then(result => {
-        const hasAny = result.shopName || result.amount || result.accountId || result.items || result.category;
+        const hasAny = result.shopName || result.amount || result.accountId || result.items || result.category || result.date;
         setOcrResult(hasAny ? result : null);
         setOcrState(hasAny ? 'done' : null);
       })

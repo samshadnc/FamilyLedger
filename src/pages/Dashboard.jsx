@@ -1,9 +1,9 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
-import { getCategoryById, CURRENCIES, AVATARS } from '../constants';
+import { getCategoryById, CURRENCIES, AVATARS, getBankBrand } from '../constants';
 
-export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, presets, onPresetSave }) {
+export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,8 +178,15 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
                                 onClick={() => { onEdit?.(exp); setShowSearch(false); setSearchQuery(''); }}
                                 className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50"
                               >
-                                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0" style={{ background: cat.bg }}>
+                                <div className="relative w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0" style={{ background: cat.bg }}>
                                   {cat.icon}
+                                  {exp.account && accountMap?.[exp.account] && (() => {
+                                    const brand = getBankBrand(accountMap[exp.account]);
+                                    return brand.logo ? (
+                                      <img src={brand.logo} alt={accountMap[exp.account]}
+                                        className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white object-contain p-0.5 shadow-sm" />
+                                    ) : null;
+                                  })()}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-semibold text-gray-900 truncate">{exp.payee || exp.note || cat.label}</p>
@@ -308,7 +315,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
       {/* Tab content */}
       {activeTab === 'transactions' && (
-        <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} />
+        <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />
       )}
       {activeTab === 'trends' && (
         <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} />
@@ -321,7 +328,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 }
 
 /* ── Transactions tab ─────────────────────────────────── */
-function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, onAdd, onEdit, onTagSelect, onPayeeSelect, presets, onPresetSave }) {
+function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, onAdd, onEdit, onTagSelect, onPayeeSelect, presets, onPresetSave, accountMap }) {
   const [selectedMember, setSelectedMember] = useState(null);
 
   // Click-outside to deselect
@@ -428,8 +435,15 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
               const isINR = exp.currency === 'INR';
               return (
                 <button key={exp.id} onClick={() => onEdit?.(exp)} className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: cat.bg }}>
+                  <div className="relative w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: cat.bg }}>
                     {cat.icon}
+                    {exp.account && accountMap?.[exp.account] && (() => {
+                      const brand = getBankBrand(accountMap[exp.account]);
+                      return brand.logo ? (
+                        <img src={brand.logo} alt={accountMap[exp.account]}
+                          className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white object-contain p-0.5 shadow-sm" />
+                      ) : null;
+                    })()}
                   </div>
                   <div className="flex-1 min-w-0">
                     {exp.payee ? (

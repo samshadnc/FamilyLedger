@@ -437,7 +437,7 @@ export default function App() {
             onAdd={openAdd}
             onEdit={handleEdit}
             profile={profile}
-            budget={5000}
+            budget={settings.monthlyBudget ?? 5000}
             categorySettings={settings.categories}
             memberNames={Object.keys(settings.accounts)}
             onCategorySelect={setSelectedCategory}

@@ -30,7 +30,7 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
   const [localBlobUrl, setLocalBlobUrl] = useState(null);
   const [errors,       setErrors]       = useState({});
   const [ocrState,  setOcrState]  = useState(null);   // null | 'scanning' | 'done'
-  const [ocrResult, setOcrResult] = useState(null);   // { shopName, amount, currency, accountId, items }
+  const [ocrResult, setOcrResult] = useState(null);   // { shopName, amount, currency, accountId, items, category }
 
   const cameraRef = useRef();
   const galleryRef = useRef();
@@ -96,7 +96,7 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
     setOcrResult(null);
     runOCR(file, accountsSource)
       .then(result => {
-        const hasAny = result.shopName || result.amount || result.accountId || result.items;
+        const hasAny = result.shopName || result.amount || result.accountId || result.items || result.category;
         setOcrResult(hasAny ? result : null);
         setOcrState(hasAny ? 'done' : null);
       })
@@ -336,6 +336,17 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
                         className="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded-full flex-shrink-0">Use</button>
                     </div>
                   )}
+                  {ocrResult.category && type === 'expense' && (() => {
+                    const cat = CATEGORIES.find(c => c.id === ocrResult.category);
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-gray-400 w-12 flex-shrink-0">Category</span>
+                        <span className="text-xs text-gray-800 flex-1 truncate font-medium">{cat.icon} {cat.label}</span>
+                        <button type="button" onClick={() => { setCategory(cat.id); setErrors(e => ({ ...e, category: undefined })); }}
+                          className="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded-full flex-shrink-0">Use</button>
+                      </div>
+                    );
+                  })()}
                   {ocrResult.accountId && (
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-gray-400 w-12 flex-shrink-0">Card</span>
@@ -363,6 +374,7 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
                       if (ocrResult.amount)    { setAmount(String(ocrResult.amount)); if (ocrResult.currency) setCurrency(ocrResult.currency); }
                       if (ocrResult.accountId) setAccount(ocrResult.accountId);
                       if (ocrResult.items)     setNote(ocrResult.items);
+                      if (ocrResult.category && type === 'expense') { setCategory(ocrResult.category); setErrors(e => ({ ...e, category: undefined })); }
                       setOcrState(null);
                     }}
                     className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold"

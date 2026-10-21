@@ -121,6 +121,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
   const TABS = ['transactions', 'trends', 'categories'];
   const touchStart = useRef(null);
+  const [swipeDir, setSwipeDir] = useState(null); // 'left' | 'right' | null
 
   const handleTouchStart = (e) => {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -133,9 +134,11 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     touchStart.current = null;
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
     const idx = TABS.indexOf(activeTab);
-    if (dx < 0 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]); // swipe left → next
-    if (dx > 0 && idx > 0) setActiveTab(TABS[idx - 1]);               // swipe right → prev
+    if (dx < 0 && idx < TABS.length - 1) { setSwipeDir('left');  setActiveTab(TABS[idx + 1]); }
+    if (dx > 0 && idx > 0)               { setSwipeDir('right'); setActiveTab(TABS[idx - 1]); }
   };
+
+  const handleTabTap = (id) => { setSwipeDir(null); setActiveTab(id); };
 
   return (
     <div
@@ -355,7 +358,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         ].map(t => (
           <button
             key={t.id}
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => handleTabTap(t.id)}
             className={`flex-1 flex items-center justify-center gap-1 rounded-full px-2 py-2 text-xs font-semibold border transition-all shadow-sm ${
               activeTab === t.id
                 ? 'bg-indigo-600 text-white border-indigo-600'
@@ -367,16 +370,18 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         ))}
       </div>
 
-      {/* Tab content */}
-      {activeTab === 'transactions' && (
-        <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />
-      )}
-      {activeTab === 'trends' && (
-        <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />
-      )}
-      {activeTab === 'categories' && (
-        <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />
-      )}
+      {/* Tab content — key forces remount on tab change so animation replays */}
+      <div key={activeTab} className={swipeDir === 'left' ? 'tab-slide-right' : swipeDir === 'right' ? 'tab-slide-left' : ''}>
+        {activeTab === 'transactions' && (
+          <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />
+        )}
+        {activeTab === 'trends' && (
+          <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />
+        )}
+        {activeTab === 'categories' && (
+          <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />
+        )}
+      </div>
     </div>
   );
 }

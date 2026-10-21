@@ -20,6 +20,9 @@ dist-ssr
 
 # Environment variables (never commit these)
 .env
+# Firebase service account keys
+*firebase-adminsdk*.json
+client_secret_*.json
 .env.local
 .env.*.local
 

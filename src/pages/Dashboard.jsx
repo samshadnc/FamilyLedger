@@ -550,19 +550,27 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
   const barScrollRef = useRef(null);
   const BAR_SLOT = 33;
 
-  // Scroll so last 12 months are in view after mount
-  // Timeout lets mobile browsers finish layout before setting scrollLeft
+  // Scroll so last 12 months are in view after mount.
+  // Double-RAF ensures the browser has painted and the scroll container
+  // has its real clientWidth before we set scrollLeft (plain setTimeout
+  // is too early on Android).
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const scroll = () => {
       if (barScrollRef.current) {
         const idx = months.indexOf(currentMonth);
         if (idx >= 0) {
-          const scrollTo = Math.max(0, (idx - 11) * BAR_SLOT);
-          barScrollRef.current.scrollLeft = scrollTo;
+          barScrollRef.current.scrollLeft = Math.max(0, (idx - 11) * BAR_SLOT);
         }
       }
-    }, 150);
-    return () => clearTimeout(timer);
+    };
+    let raf1, raf2;
+    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(scroll); });
+    const fallback = setTimeout(scroll, 600); // safety net for slow devices
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(fallback);
+    };
   }, []);
 
   return (

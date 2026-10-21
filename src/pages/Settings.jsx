@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
-import { AVATARS, CATEGORIES, DEFAULT_PRESETS, getCategoryById } from '../constants';
+import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById } from '../constants';
 
 function AvatarImg({ name, size = 14 }) {
   const src = AVATARS[name];
@@ -13,7 +13,7 @@ function AvatarImg({ name, size = 14 }) {
   );
 }
 
-export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo }) {
+export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(null); // person name or null
@@ -22,6 +22,12 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [showAddPreset, setShowAddPreset] = useState(false);
   const [newPreset, setNewPreset] = useState({ name: '', amount: '', category: 'transport' });
   const [localBudget, setLocalBudget] = useState(settings.monthlyBudget ?? 5000);
+  // Keep the input in step when shared settings update from the other phone
+  const [syncedBudget, setSyncedBudget] = useState(settings.monthlyBudget);
+  if (settings.monthlyBudget !== syncedBudget) {
+    setSyncedBudget(settings.monthlyBudget);
+    setLocalBudget(settings.monthlyBudget ?? 5000);
+  }
 
   const members = Object.keys(settings.accounts ?? {});
 
@@ -154,11 +160,14 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         <div className="px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-gray-900">Edit Others' Transactions</p>
-            <p className="text-xs text-gray-400 mt-0.5">Allow editing transactions added by other members</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {isOwner ? 'Allow editing transactions added by other members' : `Managed by ${SETTINGS_OWNER}`}
+            </p>
           </div>
           <button
-            onClick={() => onSave({ ...settings, allowEditOthers: !settings.allowEditOthers })}
-            className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none ${settings.allowEditOthers ? 'bg-indigo-600' : 'bg-gray-200'}`}
+            onClick={() => isOwner && onSave({ ...settings, allowEditOthers: !settings.allowEditOthers })}
+            disabled={!isOwner}
+            className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${settings.allowEditOthers ? 'bg-indigo-600' : 'bg-gray-200'}`}
             aria-label="Toggle edit others"
           >
             <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${settings.allowEditOthers ? 'translate-x-6' : 'translate-x-0.5'}`} />
@@ -383,17 +392,21 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
           <span className="text-xs text-gray-400">tap to edit</span>
         </div>
         <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 bg-gray-50">
-          <p className="text-sm font-semibold text-gray-700">Total Monthly Budget</p>
+          <div>
+            <p className="text-sm font-semibold text-gray-700">Total Monthly Budget</p>
+            {!isOwner && <p className="text-[11px] text-gray-400">Budgets managed by {SETTINGS_OWNER}</p>}
+          </div>
           <div className="flex items-center gap-1">
             <span className="text-sm text-gray-500">S$</span>
             <input
               type="number"
               min="0"
               value={localBudget}
+              disabled={!isOwner}
               onChange={e => setLocalBudget(e.target.value)}
-              onBlur={() => onSave({ ...settings, monthlyBudget: parseFloat(localBudget) || 0 })}
-              onKeyDown={e => e.key === 'Enter' && onSave({ ...settings, monthlyBudget: parseFloat(localBudget) || 0 })}
-              className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onBlur={() => isOwner && onSave({ ...settings, monthlyBudget: parseFloat(localBudget) || 0 })}
+              onKeyDown={e => e.key === 'Enter' && isOwner && onSave({ ...settings, monthlyBudget: parseFloat(localBudget) || 0 })}
+              className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -427,10 +440,11 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
                       min="0"
                       step="10"
                       value={editingCategory.budget ?? 0}
+                      disabled={!isOwner}
                       onChange={e => setEditingCategory(prev => ({ ...prev, budget: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && saveCategoryEdit()}
                       placeholder="0"
-                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-100 disabled:text-gray-500"
                     />
                     <button
                       onClick={saveCategoryEdit}

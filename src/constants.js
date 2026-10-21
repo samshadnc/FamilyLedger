@@ -36,6 +36,9 @@ export const ACCOUNTS = {
   ],
 };
 
+// Only this member can change budgets and the edit-others switch (matched by displayName)
+export const SETTINGS_OWNER = 'Samshad';
+
 export const DEFAULT_TAGS = ['Samshad', 'Sahla', 'AdvancePurchase', 'Unbudgeted', 'India'];
 
 export const DEFAULT_PRESETS = {

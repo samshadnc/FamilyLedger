@@ -284,11 +284,11 @@ export default function App() {
   useEffect(() => {
     if (isDemo || !user) return;
     const d = new Date();
-    d.setMonth(d.getMonth() - 11);
-    const sixMonthsAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    d.setMonth(d.getMonth() - 23);
+    const twoYearsAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
     const q = query(
       collection(db, 'expenses'),
-      where('date', '>=', sixMonthsAgo),
+      where('date', '>=', twoYearsAgo),
       orderBy('date', 'desc'),
     );
     const unsub = onSnapshot(q, (snap) => {

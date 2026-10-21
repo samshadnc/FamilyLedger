@@ -392,25 +392,27 @@ export default function App() {
         </div>
       )}
 
-      {/* Month nav bar — minimal, sits above content */}
-      <header className={`fixed left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-[#ECEDF0] border-b border-gray-200 ${isDemo ? 'top-6' : 'top-0'}`}>
-        <div className="flex items-center justify-between px-4 py-1">
-          <button onClick={() => stepMonth(-1)} className="p-1 rounded-lg text-gray-500">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-xs font-semibold text-gray-600">{formatMonthShort(month)}</span>
-          <button
-            onClick={() => stepMonth(1)}
-            disabled={month >= currentYM()}
-            className="p-1 rounded-lg text-gray-500 disabled:opacity-30"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </header>
+      {/* Month nav bar — hidden on dashboard, shown on expenses/analytics */}
+      {(tab !== 'dashboard' || showSettings) && (
+        <header className={`fixed left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-[#ECEDF0] border-b border-gray-200 ${isDemo ? 'top-6' : 'top-0'}`}>
+          <div className="flex items-center justify-between px-4 py-1">
+            <button onClick={() => stepMonth(-1)} className="p-1 rounded-lg text-gray-500">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs font-semibold text-gray-600">{formatMonthShort(month)}</span>
+            <button
+              onClick={() => stepMonth(1)}
+              disabled={month >= currentYM()}
+              className="p-1 rounded-lg text-gray-500 disabled:opacity-30"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </header>
+      )}
 
       {/* Content */}
-      <main className={isDemo ? 'pt-[62px]' : 'pt-[30px]'}>
+      <main className={tab === 'dashboard' && !showSettings ? 'pt-0' : isDemo ? 'pt-[62px]' : 'pt-[30px]'}>
         {loading ? (
           <div className="flex justify-center pt-20">
             <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />

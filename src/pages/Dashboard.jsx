@@ -114,7 +114,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
           onClick={onOpenSettings}
         >
           <AvatarImg name={profile?.displayName} size={11} />
-          <div>
+          <div className="text-left">
             <p className="text-xs text-gray-400 leading-none">Hi</p>
             <p className="text-lg font-bold text-gray-900 leading-tight">{profile?.displayName ?? 'User'}</p>
           </div>

@@ -1,0 +1,17 @@
+{
+  "name": "FamilyLedger",
+  "short_name": "FamilyLedger",
+  "description": "Family expense tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e001f",
+  "theme_color": "#863bff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

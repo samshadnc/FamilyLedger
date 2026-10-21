@@ -455,6 +455,7 @@ export default function App() {
             allowEditOthers={settings.allowEditOthers}
             presets={settings.presets ?? DEFAULT_PRESETS}
             onPresetSave={handlePresetSave}
+            accountMap={accountMap}
           />
         ) : tab === 'analytics' ? (
           <Analytics

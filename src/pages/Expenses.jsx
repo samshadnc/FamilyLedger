@@ -292,20 +292,6 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                     )}
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       {exp.payee && exp.note ? <span className="text-[11px] text-gray-400 truncate max-w-[130px]">{exp.note}</span> : null}
-                      {exp.tags?.length > 0
-                        ? exp.tags.slice(0, 2).map(t => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={e => { e.stopPropagation(); onTagSelect?.(t); }}
-                              className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
-                                selectedTag === t
-                                  ? 'bg-indigo-600 text-white'
-                                  : 'bg-indigo-50 text-indigo-600 active:bg-indigo-200'
-                              }`}
-                            >{t}</button>
-                          ))
-                        : null}
                       {exp.account && accountMap?.[exp.account] && (() => {
                         const brand = getBankBrand(accountMap[exp.account]);
                         const isActive = selectedAccount === exp.account;
@@ -323,6 +309,20 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                           </button>
                         );
                       })()}
+                      {exp.tags?.length > 0
+                        ? exp.tags.slice(0, 2).map(t => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={e => { e.stopPropagation(); onTagSelect?.(t); }}
+                              className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
+                                selectedTag === t
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-indigo-50 text-indigo-600 active:bg-indigo-200'
+                              }`}
+                            >{t}</button>
+                          ))
+                        : null}
                       <span className="text-[11px] text-gray-400">{exp.addedByName ?? 'Unknown'}</span>
                     </div>
                   </div>

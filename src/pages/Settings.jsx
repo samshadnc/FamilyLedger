@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
-import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById } from '../constants';
+import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById, presetButtonText } from '../constants';
 
 function AvatarImg({ name, size = 14 }) {
   const src = AVATARS[name];
@@ -13,6 +13,46 @@ function AvatarImg({ name, size = 14 }) {
   );
 }
 
+// Name / button text / amount / category inputs shared by the add and edit preset forms
+function PresetFields({ value, onChange }) {
+  const inputCls = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400';
+  return (
+    <>
+      <input
+        type="text"
+        placeholder="Name (e.g. NUS Bus)"
+        value={value.name}
+        onChange={e => onChange(p => ({ ...p, name: e.target.value }))}
+        className={inputCls}
+      />
+      <input
+        type="text"
+        placeholder={`Button text on home screen (default: ${value.name.trim().split(' ')[0] || 'first word'})`}
+        value={value.buttonText}
+        maxLength={12}
+        onChange={e => onChange(p => ({ ...p, buttonText: e.target.value }))}
+        className={inputCls}
+      />
+      <input
+        type="number"
+        placeholder="Amount (SGD)"
+        value={value.amount}
+        onChange={e => onChange(p => ({ ...p, amount: e.target.value }))}
+        className={inputCls}
+      />
+      <select
+        value={value.category}
+        onChange={e => onChange(p => ({ ...p, category: e.target.value }))}
+        className={`${inputCls} bg-white`}
+      >
+        {CATEGORIES.map(c => (
+          <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
+        ))}
+      </select>
+    </>
+  );
+}
+
 export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
@@ -20,7 +60,8 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [newAccountLabel, setNewAccountLabel] = useState('');
   const [editingCategory, setEditingCategory] = useState(null); // { id, label, icon }
   const [showAddPreset, setShowAddPreset] = useState(false);
-  const [newPreset, setNewPreset] = useState({ name: '', amount: '', category: 'transport' });
+  const [newPreset, setNewPreset] = useState({ name: '', buttonText: '', amount: '', category: 'transport' });
+  const [editingPreset, setEditingPreset] = useState(null); // copy of the preset being edited
   const [localBudget, setLocalBudget] = useState(settings.monthlyBudget ?? 5000);
   // Keep the input in step when shared settings update from the other phone
   const [syncedBudget, setSyncedBudget] = useState(settings.monthlyBudget);
@@ -81,6 +122,29 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
     onSave({ ...settings, presets: updated });
   };
 
+  const savePresetEdit = () => {
+    if (!editingPreset) return;
+    const name = editingPreset.name.trim();
+    const amount = parseFloat(editingPreset.amount);
+    if (!name || !amount || amount <= 0) return;
+    const updated = { ...settings.presets };
+    updated[userName] = (updated[userName] ?? []).map(p =>
+      p.id === editingPreset.id
+        ? {
+            ...p,
+            name,
+            buttonText: editingPreset.buttonText.trim(),
+            amount,
+            category: editingPreset.category,
+            // Keep payee in step with the name unless it was set to something else
+            payee: p.payee === p.name ? name : p.payee,
+          }
+        : p
+    );
+    onSave({ ...settings, presets: updated });
+    setEditingPreset(null);
+  };
+
   const addPreset = () => {
     const name = newPreset.name.trim();
     const amount = parseFloat(newPreset.amount);
@@ -89,6 +153,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
     const preset = {
       id: `preset_${Date.now()}`,
       name,
+      buttonText: newPreset.buttonText.trim(),
       amount,
       currency: 'SGD',
       category: newPreset.category,
@@ -99,7 +164,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
     const updated = { ...settings.presets };
     updated[userName] = [...(updated[userName] ?? []), preset];
     onSave({ ...settings, presets: updated });
-    setNewPreset({ name: '', amount: '', category: 'transport' });
+    setNewPreset({ name: '', buttonText: '', amount: '', category: 'transport' });
     setShowAddPreset(false);
   };
 
@@ -198,15 +263,41 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
 
         {userPresets.map(preset => {
           const cat = getCategoryById(preset.category);
-          return (
-            <div key={preset.id} className="px-5 py-3 flex items-center justify-between border-t border-gray-50">
-              <div className="flex items-center gap-3">
-                <span className="text-xl">{cat.icon}</span>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{preset.name}</p>
-                  <p className="text-xs text-gray-400">S${preset.amount.toFixed(2)} · {cat.label}</p>
+          if (editingPreset?.id === preset.id) {
+            return (
+              <div key={preset.id} className="px-5 py-3 border-t border-gray-50 space-y-2">
+                <PresetFields value={editingPreset} onChange={setEditingPreset} />
+                <div className="flex gap-2">
+                  <button
+                    onClick={savePresetEdit}
+                    className="flex-1 bg-indigo-600 text-white text-sm font-semibold py-2 rounded-xl"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingPreset(null)}
+                    className="px-4 border border-gray-200 text-gray-500 text-sm py-2 rounded-xl"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
+            );
+          }
+          return (
+            <div key={preset.id} className="px-5 py-3 flex items-center justify-between border-t border-gray-50">
+              <button
+                className="flex items-center gap-3 flex-1 min-w-0 text-left active:opacity-70"
+                onClick={() => setEditingPreset({ ...preset, buttonText: preset.buttonText ?? '', amount: String(preset.amount) })}
+              >
+                <span className="text-xl">{cat.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{preset.name}</p>
+                  <p className="text-xs text-gray-400">
+                    S${preset.amount.toFixed(2)} · {cat.label} · Button: “{presetButtonText(preset)}”
+                  </p>
+                </div>
+              </button>
               <button onClick={() => deletePreset(preset.id)} className="text-red-400 hover:text-red-600 p-1">
                 <X size={16} />
               </button>
@@ -216,29 +307,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
 
         {showAddPreset && (
           <div className="px-5 py-3 border-t border-gray-50 space-y-2">
-            <input
-              type="text"
-              placeholder="Name (e.g. NUS Bus)"
-              value={newPreset.name}
-              onChange={e => setNewPreset(p => ({ ...p, name: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-            <input
-              type="number"
-              placeholder="Amount (SGD)"
-              value={newPreset.amount}
-              onChange={e => setNewPreset(p => ({ ...p, amount: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-            <select
-              value={newPreset.category}
-              onChange={e => setNewPreset(p => ({ ...p, category: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
-            >
-              {CATEGORIES.map(c => (
-                <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
-              ))}
-            </select>
+            <PresetFields value={newPreset} onChange={setNewPreset} />
             <div className="flex gap-2">
               <button
                 onClick={addPreset}
@@ -247,7 +316,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
                 Add Preset
               </button>
               <button
-                onClick={() => { setShowAddPreset(false); setNewPreset({ name: '', amount: '', category: 'transport' }); }}
+                onClick={() => { setShowAddPreset(false); setNewPreset({ name: '', buttonText: '', amount: '', category: 'transport' }); }}
                 className="flex-1 bg-gray-100 text-gray-600 text-sm font-semibold py-2 rounded-xl"
               >
                 Cancel

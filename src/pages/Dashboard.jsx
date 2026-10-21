@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
-import { getCategoryById, CURRENCIES, AVATARS, getBankBrand } from '../constants';
+import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText } from '../constants';
 
 export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
@@ -495,7 +495,7 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
                   className="flex items-center gap-1 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-indigo-700 active:bg-indigo-100 transition-colors"
                 >
                   <span className="text-xs">{cat.icon}</span>
-                  <span className="text-[11px] font-semibold">{preset.name.split(' ')[0]}</span>
+                  <span className="text-[11px] font-semibold">{presetButtonText(preset)}</span>
                 </button>
               );
             })}

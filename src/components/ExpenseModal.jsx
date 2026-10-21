@@ -326,6 +326,14 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
                         className="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded-full flex-shrink-0">Use</button>
                     </div>
                   )}
+                  {ocrResult.date && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-400 w-12 flex-shrink-0">Date</span>
+                      <span className="text-xs text-gray-800 flex-1 font-medium">{ocrResult.date}</span>
+                      <button type="button" onClick={() => setDate(ocrResult.date)}
+                        className="text-[10px] px-2 py-0.5 bg-indigo-600 text-white rounded-full flex-shrink-0">Use</button>
+                    </div>
+                  )}
                   {ocrResult.amount && (
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-gray-400 w-12 flex-shrink-0">Amount</span>
@@ -372,6 +380,7 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
                     onClick={() => {
                       if (ocrResult.shopName)  setPayee(ocrResult.shopName);
                       if (ocrResult.amount)    { setAmount(String(ocrResult.amount)); if (ocrResult.currency) setCurrency(ocrResult.currency); }
+                      if (ocrResult.date)      setDate(ocrResult.date);
                       if (ocrResult.accountId) setAccount(ocrResult.accountId);
                       if (ocrResult.items)     setNote(ocrResult.items);
                       if (ocrResult.category && type === 'expense') { setCategory(ocrResult.category); setErrors(e => ({ ...e, category: undefined })); }

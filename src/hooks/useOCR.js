@@ -8,6 +8,7 @@ const PROMPT = `You are a receipt parser. Extract the following from this receip
   "shopName": "merchant/store name or null",
   "amount": total amount as a number or null,
   "currency": "SGD" or "INR" based on receipt, default "SGD",
+  "date": "transaction date in YYYY-MM-DD format or null",
   "cardBank": "bank or card name visible on receipt (e.g. DBS, VISA, Scapia, NETS) or null",
   "items": "comma-separated list of purchased items (not prices, not totals) or null",
   "category": "the single best-fitting category id for this purchase, one of: ${CATEGORIES.map(c => `${c.id} (${c.label})`).join(', ')}"
@@ -69,10 +70,15 @@ export async function runOCR(file, userAccounts = {}) {
     )?.id ?? null;
   }
 
+  // Validate date format YYYY-MM-DD
+  const rawDate = parsed.date || null;
+  const date = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
+
   return {
     shopName:  parsed.shopName  || null,
     amount:    typeof parsed.amount === 'number' ? parsed.amount : null,
     currency:  parsed.currency  || 'SGD',
+    date,
     accountId,
     items:     parsed.items     || null,
     category:  CATEGORIES.some(c => c.id === parsed.category) ? parsed.category : null,

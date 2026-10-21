@@ -62,6 +62,36 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     return { totalExpense: expense, totalIncome: income, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals };
   }, [expenses, month, memberNames]);
 
+  // Last-month review banner (shown first 5 days of a new month)
+  const lastMonthYM = useMemo(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const showLastMonthBanner = (() => {
+    const now = new Date();
+    const [cy, cm] = month.split('-').map(Number);
+    return now.getDate() <= 5 && now.getFullYear() === cy && now.getMonth() + 1 === cm;
+  })();
+
+  const lastMonthSummary = useMemo(() => {
+    if (!showLastMonthBanner) return null;
+    const exps = (allExpenses ?? []).filter(e => e.date.startsWith(lastMonthYM) && e.type !== 'income');
+    const total = exps.reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
+    const catMap = {};
+    exps.forEach(e => {
+      const v = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+      catMap[e.category] = (catMap[e.category] ?? 0) + v;
+    });
+    const topCats = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([id, amount]) => ({ cat: getCategoryById(id), amount }));
+    return { total, topCats };
+  }, [showLastMonthBanner, allExpenses, lastMonthYM]);
+
   // Category totals for the trends-selected month
   const trendsCategoryTotals = useMemo(() => {
     const map = {};
@@ -370,6 +400,44 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
       {/* Divider */}
       <div className="h-px bg-gray-200 mx-5 my-3" />
+
+      {/* Last-month review banner */}
+      {showLastMonthBanner && lastMonthSummary && lastMonthSummary.total > 0 && (
+        <button
+          onClick={() => { setTrendsMonth(lastMonthYM); handleTabTap('trends'); }}
+          className="mx-4 mb-3 w-[calc(100%-2rem)] bg-white rounded-2xl shadow-sm overflow-hidden text-left active:opacity-80 transition-opacity"
+        >
+          <div className="flex items-stretch">
+            <div className="w-1 bg-indigo-500 flex-shrink-0 rounded-l-2xl" />
+            <div className="flex-1 px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide">
+                  {formatMonthFull(lastMonthYM)} Review
+                </p>
+                <ChevronRight size={14} className="text-indigo-400" />
+              </div>
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-lg font-bold text-gray-900 leading-none">S${fmt(lastMonthSummary.total)}</p>
+                  <p className={`text-[11px] mt-0.5 font-medium ${lastMonthSummary.total > safeBudget ? 'text-red-500' : 'text-green-600'}`}>
+                    {lastMonthSummary.total > safeBudget
+                      ? `S${fmt(lastMonthSummary.total - safeBudget)} over budget`
+                      : `S${fmt(safeBudget - lastMonthSummary.total)} under budget`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {lastMonthSummary.topCats.map(({ cat, amount }) => (
+                    <div key={cat.id} className="flex items-center gap-1 px-2 py-1 rounded-xl" style={{ background: cat.bg + '33' }}>
+                      <span className="text-sm">{cat.icon}</span>
+                      <span className="text-[11px] font-semibold text-gray-700">S${fmtCompact(amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </button>
+      )}
 
       {/* Tabs */}
       <div className="px-4 flex gap-2 mb-3">

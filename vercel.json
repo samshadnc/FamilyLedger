@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/monthly-report",
-      "schedule": "0 7 1 * *"
+      "schedule": "0 7 3 * *"
     }
   ]
 }

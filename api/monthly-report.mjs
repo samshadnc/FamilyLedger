@@ -43,28 +43,40 @@ async function getAIInsights(lastMonthData, prevMonthsData, monthLabel) {
 
   const summarize = (exps) => {
     const byCategory = {};
+    const byPayee = {};
     let total = 0;
     for (const e of exps) {
       const sgd = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
       byCategory[e.category] = (byCategory[e.category] ?? 0) + sgd;
+      if (e.payee) byPayee[e.payee] = (byPayee[e.payee] ?? 0) + sgd;
       total += sgd;
     }
-    return { total: total.toFixed(2), byCategory };
+    const topPayees = Object.entries(byPayee).sort((a,b) => b[1]-a[1]).slice(0,5);
+    return { total: total.toFixed(2), byCategory, topPayees };
   };
 
   const lastSummary = summarize(lastMonthData);
   const prevSummaries = prevMonthsData.map(({ label, exps }) => ({ label, ...summarize(exps) }));
+  const avg3month = prevSummaries.length
+    ? (prevSummaries.reduce((s, p) => s + parseFloat(p.total), 0) / prevSummaries.length).toFixed(2)
+    : null;
 
-  const prompt = `You are a personal finance analyst. Analyze this family's spending data and write a short, friendly 3-4 sentence insight paragraph.
+  const prompt = `You are a friendly personal finance advisor for a family of two (Samshad and Sahla) living in Singapore. Write a warm, personal 4-5 sentence analysis of their spending.
 
-${monthLabel} spending:
-Total: S$${lastSummary.total}
+${monthLabel} — Total: S$${lastSummary.total}${avg3month ? ` (3-month avg: S$${avg3month})` : ''}
 By category: ${JSON.stringify(lastSummary.byCategory)}
+Top payees: ${lastSummary.topPayees.map(([p,a]) => `${p} S$${a.toFixed(2)}`).join(', ')}
 
-Previous months for comparison:
-${prevSummaries.map(p => `${p.label}: Total S$${p.total}, ${JSON.stringify(p.byCategory)}`).join('\n')}
+Previous months:
+${prevSummaries.map(p => `${p.label}: S$${p.total}, categories: ${JSON.stringify(p.byCategory)}, top payees: ${p.topPayees.map(([n,a]) => `${n} S$${a.toFixed(2)}`).join(', ')}`).join('\n')}
 
-Write 3-4 sentences highlighting: notable changes vs previous months, any category that spiked or dropped significantly, and one practical observation. Keep it conversational, specific with numbers. No bullet points, just a paragraph.`;
+Write 4-5 sentences that:
+1. Compare this month's total to the 3-month average with a friendly observation
+2. Call out 1-2 specific payees or categories that stand out (higher or lower than usual)
+3. Note any positive spending habits worth acknowledging
+4. Give one specific, actionable suggestion for next month
+
+Be warm and personal, use "you" not "the family". Mention actual payee names and SGD amounts. No bullet points — just flowing sentences.`;
 
   try {
     const res = await fetch(

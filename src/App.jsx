@@ -373,6 +373,9 @@ export default function App() {
   }, [user, isDemo]);
 
   // Silent auto-backup: once per day for the master user, no popup
+  const [lastBackupDate, setLastBackupDate] = useState(() => {
+    try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
+  });
   const backupSettingsRef = useRef(settings);
   useEffect(() => { backupSettingsRef.current = settings; }, [settings]);
   useEffect(() => {
@@ -381,7 +384,7 @@ export default function App() {
       const last = localStorage.getItem('fl_last_drive_backup');
       if (last && (Date.now() - new Date(last).getTime()) < 24 * 60 * 60 * 1000) return;
     } catch {}
-    const attempt = () => initSilentBackup(backupSettingsRef.current);
+    const attempt = () => initSilentBackup(backupSettingsRef.current, (ts) => setLastBackupDate(ts));
     if (window.google?.accounts?.oauth2) { attempt(); }
     else { setTimeout(attempt, 3000); }
   }, [user, isDemo]);
@@ -518,6 +521,8 @@ export default function App() {
             isDemo={isDemo}
             isOwner={isSettingsOwner}
             allExpenses={isDemo ? DEMO_ALL_EXPENSES : allExpenses}
+            lastBackupDate={lastBackupDate}
+            onBackupDone={(ts) => setLastBackupDate(ts)}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail

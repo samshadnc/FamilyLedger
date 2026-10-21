@@ -54,7 +54,7 @@ function PresetFields({ value, onChange }) {
   );
 }
 
-export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses }) {
+export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(null); // person name or null
@@ -67,9 +67,6 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | 'done' | 'error'
   const [exportMonth, setExportMonth] = useState('all');
   const [driveStatus, setDriveStatus] = useState(null); // null | 'backing-up' | 'done' | 'error'
-  const [lastBackupDate, setLastBackupDate] = useState(() => {
-    try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
-  });
 
   const exportMonthOptions = useMemo(() => {
     const months = [...new Set((allExpenses ?? []).map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
@@ -137,7 +134,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         setDriveStatus('backing-up');
         try {
           const ts = await uploadToDrive(response.access_token, settings);
-          setLastBackupDate(ts);
+          onBackupDone?.(ts);
           setDriveStatus('done');
           setTimeout(() => setDriveStatus(null), 3000);
         } catch {

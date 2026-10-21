@@ -502,6 +502,7 @@ export default function App() {
             onLogout={() => !isDemo && signOut(auth)}
             isDemo={isDemo}
             isOwner={isSettingsOwner}
+            allExpenses={isDemo ? DEMO_ALL_EXPENSES : allExpenses}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail

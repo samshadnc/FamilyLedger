@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById, presetButtonText } from '../constants';
 
@@ -53,7 +53,7 @@ function PresetFields({ value, onChange }) {
   );
 }
 
-export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner }) {
+export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(null); // person name or null
@@ -63,6 +63,64 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [newPreset, setNewPreset] = useState({ name: '', buttonText: '', amount: '', category: 'transport' });
   const [editingPreset, setEditingPreset] = useState(null); // copy of the preset being edited
   const [localBudget, setLocalBudget] = useState(settings.monthlyBudget ?? 5000);
+  const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | 'done' | 'error'
+  const [exportMonth, setExportMonth] = useState('all');
+
+  const exportMonthOptions = useMemo(() => {
+    const months = [...new Set((allExpenses ?? []).map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));
+    return months;
+  }, [allExpenses]);
+
+  const handleExportCSV = async () => {
+    const all = allExpenses ?? [];
+    const exps = exportMonth === 'all' ? all : all.filter(e => e.date.startsWith(exportMonth));
+    if (!exps.length) { setExportStatus('error'); setTimeout(() => setExportStatus(null), 2000); return; }
+    setExportStatus('exporting');
+
+    const headers = ['Date', 'Payee', 'Note', 'Amount SGD', 'Currency', 'Original Amount', 'Category', 'Tags', 'Account', 'Added By', 'Type'];
+    const rows = [...exps]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(e => {
+        const cat = getCategoryById(e.category);
+        const sgd = (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)).toFixed(2);
+        return [
+          e.date,
+          e.payee ?? '',
+          e.note ?? '',
+          sgd,
+          e.currency ?? 'SGD',
+          e.amount.toFixed(2),
+          cat.label,
+          (e.tags ?? []).join('; '),
+          e.account ?? '',
+          e.addedByName ?? '',
+          e.type ?? 'expense',
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+      });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const filename = `FamilyLedger_${exportMonth === 'all' ? 'all' : exportMonth}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const file = new File([blob], filename, { type: 'text/csv' });
+
+    // Try Web Share API (mobile — opens share sheet so user can email/save to Drive etc.)
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'FamilyLedger Export' });
+        setExportStatus('done');
+        setTimeout(() => setExportStatus(null), 2000);
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') { setExportStatus(null); return; }
+      }
+    }
+    // Fallback: download link (desktop)
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    setExportStatus('done');
+    setTimeout(() => setExportStatus(null), 2000);
+  };
   // Keep the input in step when shared settings update from the other phone
   const [syncedBudget, setSyncedBudget] = useState(settings.monthlyBudget);
   if (settings.monthlyBudget !== syncedBudget) {
@@ -556,6 +614,41 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
           ))}
         </div>
         <div className="h-3" />
+      </div>
+
+      {/* ── Export ───────────────────────────────────── */}
+      <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-5 pt-4 pb-2">
+          <p className="text-sm font-bold text-gray-900">Export Data</p>
+        </div>
+        <div className="px-5 pb-3">
+          <select
+            value={exportMonth}
+            onChange={e => setExportMonth(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white text-gray-700 mb-3"
+          >
+            <option value="all">All data</option>
+            {exportMonthOptions.map(ym => {
+              const [y, m] = ym.split('-');
+              const label = new Date(+y, +m - 1).toLocaleString('en-SG', { month: 'long', year: 'numeric' });
+              return <option key={ym} value={ym}>{label}</option>;
+            })}
+          </select>
+          <button
+            onClick={handleExportCSV}
+            disabled={exportStatus === 'exporting'}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-50 text-indigo-600 font-semibold text-sm active:opacity-70 transition-opacity disabled:opacity-50"
+          >
+          {exportStatus === 'exporting' ? (
+            <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          )}
+          {exportStatus === 'done' ? 'Exported!' : exportStatus === 'error' ? 'No data to export' : 'Export CSV'}
+          </button>
+        </div>
       </div>
 
       {/* ── Logout ───────────────────────────────────── */}

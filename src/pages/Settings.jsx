@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import { db } from '../firebase';
+import { uploadToDrive } from '../utils/driveBackup';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById, presetButtonText } from '../constants';
 
@@ -136,55 +135,9 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
       callback: async (response) => {
         if (response.error) { setDriveStatus('error'); setTimeout(() => setDriveStatus(null), 3000); return; }
         setDriveStatus('backing-up');
-        const token = response.access_token;
-        // Fetch ALL expenses (no date limit) on demand
-        let allData = [];
         try {
-          const snap = await getDocs(query(collection(db, 'expenses'), orderBy('date', 'desc')));
-          allData = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-        } catch { allData = allExpenses ?? []; }
-        const backup = {
-          exportedAt: new Date().toISOString(),
-          version: 1,
-          expenses: allData,
-          settings,
-        };
-        const content = JSON.stringify(backup, null, 2);
-        const filename = 'FamilyLedger_backup.json';
-        try {
-          const searchRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q=name%3D'${filename}'%20and%20trashed%3Dfalse&fields=files(id)`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const { files } = await searchRes.json();
-          const boundary = 'fl_backup_boundary';
-          const body = [
-            `--${boundary}`,
-            'Content-Type: application/json; charset=UTF-8',
-            '',
-            JSON.stringify({ name: filename, mimeType: 'application/json' }),
-            `--${boundary}`,
-            'Content-Type: application/json',
-            '',
-            content,
-            `--${boundary}--`,
-          ].join('\r\n');
-          const isUpdate = files?.length > 0;
-          const url = isUpdate
-            ? `https://www.googleapis.com/upload/drive/v3/files/${files[0].id}?uploadType=multipart`
-            : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-          const res = await fetch(url, {
-            method: isUpdate ? 'PATCH' : 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': `multipart/related; boundary=${boundary}`,
-            },
-            body,
-          });
-          if (!res.ok) throw new Error('Upload failed');
-          const now = new Date().toISOString();
-          try { localStorage.setItem('fl_last_drive_backup', now); } catch {}
-          setLastBackupDate(now);
+          const ts = await uploadToDrive(response.access_token, settings);
+          setLastBackupDate(ts);
           setDriveStatus('done');
           setTimeout(() => setDriveStatus(null), 3000);
         } catch {

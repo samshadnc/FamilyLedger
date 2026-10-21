@@ -50,6 +50,10 @@ export const DEFAULT_PRESETS = {
   ],
 };
 
+// Text on a preset's home-screen button: its own buttonText, else the first word of its name
+export const presetButtonText = (preset) =>
+  preset.buttonText?.trim() || preset.name.split(' ')[0];
+
 // Avatar photos keyed by displayName — falls back to initials if not set
 export const AVATARS = {
   Samshad: '/samshad.png',

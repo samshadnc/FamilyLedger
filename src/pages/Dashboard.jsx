@@ -551,14 +551,18 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
   const BAR_SLOT = 33;
 
   // Scroll so last 12 months are in view after mount
+  // Timeout lets mobile browsers finish layout before setting scrollLeft
   useEffect(() => {
-    if (barScrollRef.current) {
-      const idx = months.indexOf(currentMonth);
-      if (idx >= 0) {
-        const scrollTo = Math.max(0, (idx - 11) * BAR_SLOT);
-        barScrollRef.current.scrollLeft = scrollTo;
+    const timer = setTimeout(() => {
+      if (barScrollRef.current) {
+        const idx = months.indexOf(currentMonth);
+        if (idx >= 0) {
+          const scrollTo = Math.max(0, (idx - 11) * BAR_SLOT);
+          barScrollRef.current.scrollLeft = scrollTo;
+        }
       }
-    }
+    }, 150);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -572,20 +576,20 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
 
         <div
           ref={barScrollRef}
-          className="overflow-x-auto px-3 pb-4"
-          style={{ scrollbarWidth: 'none' }}
+          className="overflow-x-auto px-3 pb-3"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
         >
-          <div className="flex items-end gap-1" style={{ minWidth: months.length * BAR_SLOT, height: 180 }}>
+          <div className="flex items-end gap-1" style={{ minWidth: months.length * BAR_SLOT, height: 150 }}>
             {months.map(ym => {
               const total = monthlyTotals[ym] ?? 0;
-              const barH = total > 0 ? Math.max((total / maxTotal) * 130, 12) : 6;
+              const barH = total > 0 ? Math.max((total / maxTotal) * 100, 10) : 5;
               const isSelected = ym === selectedMonth;
               return (
                 <button
                   key={ym}
                   onClick={() => onMonthSelect(ym)}
                   className="flex flex-col items-center justify-end flex-shrink-0 rounded-lg transition-colors"
-                  style={{ width: 29, height: 170, paddingBottom: 4, background: isSelected ? '#e5e7eb' : 'transparent' }}
+                  style={{ width: 29, height: 140, paddingBottom: 4, background: isSelected ? '#e5e7eb' : 'transparent' }}
                 >
                   <p className="text-[8px] font-semibold mb-1" style={{ color: total > 0 ? '#374151' : '#d1d5db' }}>
                     {total > 0 ? fmtK(total) : '—'}
@@ -594,7 +598,7 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
                     className="w-3.5 rounded-t-md transition-all"
                     style={{ height: barH, background: isSelected ? '#4F46E5' : total > 0 ? '#a5b4fc' : '#e5e7eb' }}
                   />
-                  <p className="text-[9px] mt-1 font-medium" style={{ color: isSelected ? '#374151' : '#9ca3af' }}>
+                  <p className="text-[10px] mt-1 font-medium" style={{ color: isSelected ? '#374151' : '#9ca3af' }}>
                     {shortMonth(ym)}
                   </p>
                 </button>

@@ -114,7 +114,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   };
 
   return (
-    <div className="min-h-screen bg-[#ECEDF0] pb-24">
+    <div className="min-h-screen bg-[#ECEDF0] pb-24 overflow-x-hidden">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 flex items-center gap-3">
         <button
@@ -416,11 +416,11 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
                       onChange={e => setEditingCategory(prev => ({ ...prev, label: e.target.value }))}
                       maxLength={30}
                       autoFocus
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 flex-shrink-0">Monthly Budget S$</span>
+                    <span className="text-xs text-gray-400 flex-shrink-0">Budget S$</span>
                     <input
                       type="number"
                       min="0"
@@ -429,7 +429,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
                       onChange={e => setEditingCategory(prev => ({ ...prev, budget: e.target.value }))}
                       onKeyDown={e => e.key === 'Enter' && saveCategoryEdit()}
                       placeholder="0"
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     />
                     <button
                       onClick={saveCategoryEdit}

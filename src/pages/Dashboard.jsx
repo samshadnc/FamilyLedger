@@ -5,6 +5,7 @@ import { getCategoryById, CURRENCIES, AVATARS, getBankBrand } from '../constants
 
 export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
+  const [trendsMonth, setTrendsMonth] = useState(month);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef(null);
@@ -60,6 +61,20 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
     return { totalExpense: expense, totalIncome: income, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals };
   }, [expenses, month, memberNames]);
+
+  // Category totals for the trends-selected month
+  const trendsCategoryTotals = useMemo(() => {
+    const map = {};
+    (allExpenses ?? [])
+      .filter(e => e.date.startsWith(trendsMonth) && e.type !== 'income')
+      .forEach(e => {
+        const v = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+        map[e.category] = (map[e.category] ?? 0) + v;
+      });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([id, amount]) => ({ id, amount }));
+  }, [allExpenses, trendsMonth]);
+
+  const trendsTotalExpense = trendsCategoryTotals.reduce((s, c) => s + c.amount, 0);
 
   // Search across all expenses (all months)
   const searchResults = useMemo(() => {
@@ -208,41 +223,59 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       {/* Ring / Category chart */}
       <div className="px-5 pt-1 pb-2">
         <p className="text-center text-gray-500 text-sm mb-3">
-          Spent in <span className="font-bold text-gray-800">{monthLabel}</span>
+          Spent in <span className="font-bold text-gray-800">
+            {activeTab === 'trends' ? formatMonthFull(trendsMonth) : monthLabel}
+          </span>
         </p>
 
-        {activeTab === 'categories' && categoryTotals.length > 0 ? (
+        {(activeTab === 'categories' || activeTab === 'trends') && (activeTab !== 'trends' ? categoryTotals.length > 0 : true) ? (
           /* ── Category donut ───────────────────────────────── */
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0">
-              <PieChart width={160} height={160}>
-                <Pie data={categoryTotals} cx={75} cy={75} innerRadius={42} outerRadius={72}
-                  dataKey="amount" strokeWidth={2} stroke="#ECEDF0">
-                  {categoryTotals.map(({ id }) => {
+          (() => {
+            const pieData = activeTab === 'trends' ? trendsCategoryTotals : categoryTotals;
+            const pieTotal = activeTab === 'trends' ? trendsTotalExpense : totalExpense;
+            return (
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  {pieData.length > 0 ? (
+                    <PieChart width={160} height={160}>
+                      <Pie data={pieData} cx={75} cy={75} innerRadius={42} outerRadius={72}
+                        dataKey="amount" strokeWidth={2} stroke="#ECEDF0">
+                        {pieData.map(({ id }) => {
+                          const cat = getCategoryById(id);
+                          return <Cell key={id} fill={cat.color} />;
+                        })}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => [`S$${fmt(v)}`, '']}
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+                      />
+                    </PieChart>
+                  ) : (
+                    <div className="w-40 h-40 flex items-center justify-center">
+                      <div className="w-28 h-28 rounded-full border-[14px] border-gray-200 flex items-center justify-center">
+                        <p className="text-[10px] text-gray-400 text-center leading-tight">No<br/>expenses</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  {pieData.length === 0 ? (
+                    <p className="text-xs text-gray-400">No expenses for {formatMonthFull(activeTab === 'trends' ? trendsMonth : month)}</p>
+                  ) : pieData.slice(0, 6).map(({ id, amount }) => {
                     const cat = getCategoryById(id);
-                    return <Cell key={id} fill={cat.color} />;
+                    const pctCat = pieTotal > 0 ? ((amount / pieTotal) * 100).toFixed(0) : 0;
+                    return (
+                      <div key={id} className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
+                        <span className="text-xs text-gray-700 truncate flex-1">{cat.label}</span>
+                        <span className="text-xs font-bold text-gray-600 flex-shrink-0">{pctCat}%</span>
+                      </div>
+                    );
                   })}
-                </Pie>
-                <Tooltip
-                  formatter={(v) => [`S$${fmt(v)}`, '']}
-                  contentStyle={{ fontSize: 11, borderRadius: 8, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
-                />
-              </PieChart>
-            </div>
-            <div className="flex-1 min-w-0 space-y-1.5">
-              {categoryTotals.slice(0, 6).map(({ id, amount }) => {
-                const cat = getCategoryById(id);
-                const pctCat = totalExpense > 0 ? ((amount / totalExpense) * 100).toFixed(0) : 0;
-                return (
-                  <div key={id} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }} />
-                    <span className="text-xs text-gray-700 truncate flex-1">{cat.label}</span>
-                    <span className="text-xs font-bold text-gray-600 flex-shrink-0">{pctCat}%</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                </div>
+              </div>
+            );
+          })()
         ) : (
           /* ── Budget ring ──────────────────────────────────── */
           <div className="flex items-center justify-center">
@@ -317,7 +350,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />
       )}
       {activeTab === 'trends' && (
-        <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} />
+        <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />
       )}
       {activeTab === 'categories' && (
         <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />
@@ -478,7 +511,7 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
 }
 
 /* ── Trends tab ───────────────────────────────────────── */
-function TrendsTab({ allExpenses, currentMonth }) {
+function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) {
   // Last 12 months oldest → newest
   const months = useMemo(() => {
     const result = [];
@@ -490,7 +523,6 @@ function TrendsTab({ allExpenses, currentMonth }) {
     return result;
   }, [currentMonth]);
 
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
 
@@ -551,7 +583,7 @@ function TrendsTab({ allExpenses, currentMonth }) {
               return (
                 <button
                   key={ym}
-                  onClick={() => setSelectedMonth(ym)}
+                  onClick={() => onMonthSelect(ym)}
                   className="flex flex-col items-center justify-end flex-shrink-0 rounded-lg transition-colors"
                   style={{ width: 29, height: 170, paddingBottom: 4, background: isSelected ? '#e5e7eb' : 'transparent' }}
                 >

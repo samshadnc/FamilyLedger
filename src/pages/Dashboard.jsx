@@ -445,25 +445,12 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
                     })()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    {exp.payee ? (
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); onPayeeSelect?.(exp.payee); }}
-                        className="text-sm font-semibold text-gray-900 truncate text-left max-w-full"
-                      >{exp.payee}</button>
-                    ) : (
-                      <p className="text-sm font-semibold text-gray-900 truncate">{exp.note || cat.label}</p>
-                    )}
+                    <p className="text-sm font-semibold text-gray-900 truncate">{exp.payee || exp.note || cat.label}</p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       {exp.payee && exp.note ? <span className="text-[11px] text-gray-400 truncate max-w-[120px]">{exp.note}</span> : null}
                       {exp.tags?.length > 0
                         ? exp.tags.slice(0, 2).map(t => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={e => { e.stopPropagation(); onTagSelect?.(t); }}
-                              className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium active:bg-indigo-200 transition-colors"
-                            >{t}</button>
+                            <span key={t} className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">{t}</span>
                           ))
                         : null}
                       <span className="text-[11px] text-gray-400">· {exp.addedByName}</span>

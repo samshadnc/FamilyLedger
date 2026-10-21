@@ -325,7 +325,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       <div className="h-px bg-gray-200 mx-5 my-3" />
 
       {/* Tabs */}
-      <div className="px-5 flex gap-2 mb-3">
+      <div className="px-4 flex gap-2 mb-3">
         {[
           { id: 'transactions', icon: '🧾', label: 'Transactions' },
           { id: 'trends',       icon: '📊', label: 'Trends' },
@@ -334,7 +334,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border transition-all shadow-sm ${
+            className={`flex-1 flex items-center justify-center gap-1 rounded-full px-2 py-2 text-xs font-semibold border transition-all shadow-sm ${
               activeTab === t.id
                 ? 'bg-indigo-600 text-white border-indigo-600'
                 : 'bg-white text-gray-700 border-gray-100'

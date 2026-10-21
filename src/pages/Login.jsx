@@ -3,6 +3,8 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfi
 import { auth } from '../firebase';
 import { Wallet } from 'lucide-react';
 
+const ALLOWED_EMAILS = ['samshadnc@gmail.com', 'msahla99@gmail.com'];
+
 export default function Login() {
   const [mode, setMode]       = useState('login'); // 'login' | 'register'
   const [name, setName]       = useState('');
@@ -14,6 +16,10 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (mode === 'register' && !ALLOWED_EMAILS.includes(email.trim().toLowerCase())) {
+      setError('This email is not authorised to create an account.');
+      return;
+    }
     setLoading(true);
     try {
       if (mode === 'login') {

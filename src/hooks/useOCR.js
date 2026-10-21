@@ -1,3 +1,5 @@
+import { CATEGORIES } from '../constants';
+
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${GEMINI_KEY}`;
 
@@ -7,7 +9,8 @@ const PROMPT = `You are a receipt parser. Extract the following from this receip
   "amount": total amount as a number or null,
   "currency": "SGD" or "INR" based on receipt, default "SGD",
   "cardBank": "bank or card name visible on receipt (e.g. DBS, VISA, Scapia, NETS) or null",
-  "items": "comma-separated list of purchased items (not prices, not totals) or null"
+  "items": "comma-separated list of purchased items (not prices, not totals) or null",
+  "category": "the single best-fitting category id for this purchase, one of: ${CATEGORIES.map(c => `${c.id} (${c.label})`).join(', ')}"
 }`;
 
 async function fileToBase64(file) {
@@ -72,5 +75,6 @@ export async function runOCR(file, userAccounts = {}) {
     currency:  parsed.currency  || 'SGD',
     accountId,
     items:     parsed.items     || null,
+    category:  CATEGORIES.some(c => c.id === parsed.category) ? parsed.category : null,
   };
 }

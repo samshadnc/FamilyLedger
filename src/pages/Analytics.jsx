@@ -253,7 +253,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
                           <div
                             key={name}
                             className="rounded-t-sm"
-                            style={{ height: h, width: 5, background: isSelected ? col.active : col.light }}
+                            style={{ height: h, width: 8, background: isSelected ? col.active : col.light }}
                           />
                         );
                       })}

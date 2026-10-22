@@ -38,6 +38,18 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const galleryRef = useRef();
   const { inrToSgd, rateLabel, offline } = useExchangeRate();
 
+  // Intercept Android/browser back button — close modal instead of navigating away
+  useEffect(() => {
+    history.pushState({ flModal: true }, '');
+    const handlePop = () => onClose();
+    window.addEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      // If modal was closed via button (not back), clean up the pushed history entry
+      if (history.state?.flModal) history.back();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load blob from IndexedDB when viewing a pending attachment from a previous session
   useEffect(() => {
     if (!expense?.attachment?.pending || !expense.attachment.receiptId) return;

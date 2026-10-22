@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { uploadToDrive } from '../utils/driveBackup';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById, presetButtonText } from '../constants';
@@ -67,6 +67,16 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | 'done' | 'error'
   const [exportMonth, setExportMonth] = useState('all');
   const [driveStatus, setDriveStatus] = useState(null); // null | 'backing-up' | 'done' | 'error'
+
+  useEffect(() => {
+    history.pushState({ flSettings: true }, '');
+    const handlePop = () => onBack();
+    window.addEventListener('popstate', handlePop);
+    return () => {
+      window.removeEventListener('popstate', handlePop);
+      if (history.state?.flSettings) history.back();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportMonthOptions = useMemo(() => {
     const months = [...new Set((allExpenses ?? []).map(e => e.date.slice(0, 7)))].sort((a, b) => b.localeCompare(a));

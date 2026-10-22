@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { getCategoryById, CURRENCIES, getBankBrand } from '../constants';
 import BankBadge from '../components/BankBadge';
 
-export default function Expenses({ expenses, allExpenses, onEdit, onDelete, profile, allowEditOthers, selectedTag, onClearTag, onTagSelect, selectedAccount, onClearAccount, onAccountSelect, accountMap, selectedPayee, onClearPayee, onPayeeSelect }) {
+export default function Expenses({ expenses, allExpenses, onEdit, onDelete, profile, allowEditOthers, selectedTag, onClearTag, onTagSelect, selectedAccount, onClearAccount, onAccountSelect, accountMap, selectedPayee, onClearPayee, onPayeeSelect, selectedCategory, onClearCategory, onCategorySelect }) {
   const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
 
   const filtered = selectedTag
@@ -12,6 +12,8 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
     ? expenses.filter(e => e.account === selectedAccount)
     : selectedPayee
     ? (allExpenses ?? expenses).filter(e => e.payee === selectedPayee && e.type !== 'income')
+    : selectedCategory
+    ? expenses.filter(e => e.category === selectedCategory && e.type !== 'income')
     : expenses;
 
   const tagTotal = selectedTag
@@ -25,6 +27,22 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
   const payeeTotal = selectedPayee
     ? filtered.reduce((s, e) => s + sgdVal(e), 0)
     : 0;
+
+  const categoryTotal = selectedCategory
+    ? filtered.reduce((s, e) => s + sgdVal(e), 0)
+    : 0;
+
+  const categoryMonthlyData = useMemo(() => {
+    if (!selectedCategory) return [];
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (11 - i));
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('en-SG', { month: 'short' });
+      const total = (allExpenses ?? []).filter(e => e.category === selectedCategory && e.date.startsWith(ym) && e.type !== 'income').reduce((s, e) => s + sgdVal(e), 0);
+      return { ym, label, total, isCurrent: i === 11 };
+    });
+  }, [selectedCategory, allExpenses]);
 
   const payeeMonthlyData = useMemo(() => {
     if (!selectedPayee) return [];
@@ -43,6 +61,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
 
   const catBreakdown = useMemo(() => {
     const source = (selectedTag || selectedAccount) ? filtered : expenses;
+    if (selectedCategory) return [];
     const map = {};
     source.filter(e => e.type !== 'income').forEach(e => {
       map[e.category] = (map[e.category] ?? 0) + sgdVal(e);
@@ -80,7 +99,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
     });
   }, [selectedAccount, allExpenses]);
 
-  if (expenses.length === 0 && !selectedTag && !selectedAccount && !selectedPayee) {
+  if (expenses.length === 0 && !selectedTag && !selectedAccount && !selectedPayee && !selectedCategory) {
     return (
       <div className="pb-24 text-center py-20 text-gray-400 px-4">
         <p className="text-5xl mb-3">🧾</p>
@@ -93,7 +112,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
   return (
     <div className="pb-24 px-4 pt-4 space-y-5">
       {/* Category breakdown — always visible at top when no filter active */}
-      {!selectedTag && !selectedAccount && !selectedPayee && catBreakdown.length > 0 && (
+      {!selectedTag && !selectedAccount && !selectedPayee && !selectedCategory && catBreakdown.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-4 pt-3 pb-1 flex items-center justify-between">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Category Breakdown</p>
@@ -255,6 +274,53 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
         </div>
       )}
 
+      {/* Category filter banner */}
+      {selectedCategory && (() => {
+        const cat = getCategoryById(selectedCategory);
+        return (
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: cat.bg }}>
+                {cat.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-bold text-gray-900">{cat.label}</span>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {filtered.length} {filtered.length === 1 ? 'transaction' : 'transactions'}
+                  {categoryTotal > 0 && <span className="font-semibold" style={{ color: cat.color }}> · S${categoryTotal.toLocaleString('en-SG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
+                </p>
+              </div>
+              <button onClick={onClearCategory} className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 flex-shrink-0">✕</button>
+            </div>
+            {categoryMonthlyData.some(d => d.total > 0) && (
+              <div className="px-4 pb-4">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2">Monthly spend</p>
+                <div className="flex items-end gap-1 h-20">
+                  {categoryMonthlyData.map(({ ym, label, total, isCurrent }) => {
+                    const maxT = Math.max(...categoryMonthlyData.map(d => d.total), 1);
+                    const h = total > 0 ? Math.max((total / maxT) * 44, 3) : 2;
+                    const amtStr = total > 0 ? (total < 10 ? total.toFixed(2) : total.toFixed(1)) : '';
+                    return (
+                      <div key={ym} className="flex-1 flex flex-col items-center justify-end gap-0.5">
+                        {total > 0 && <p className="text-[7px] font-semibold leading-none mb-0.5" style={{ color: isCurrent ? cat.color : '#9ca3af' }}>{amtStr}</p>}
+                        <div className="w-full rounded-t-sm" style={{ height: h, background: isCurrent ? cat.color : `${cat.color}55` }} />
+                        <p className="text-[8px]" style={{ color: isCurrent ? cat.color : '#9ca3af' }}>{label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+      {filtered.length === 0 && selectedCategory && (
+        <div className="text-center py-16 text-gray-400">
+          <p className="text-4xl mb-2">{getCategoryById(selectedCategory).icon}</p>
+          <p className="font-medium text-gray-600">No {getCategoryById(selectedCategory).label} expenses this month</p>
+        </div>
+      )}
+
       {grouped.map(({ dateLabel, items }) => (
         <div key={dateLabel}>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{dateLabel}</p>
@@ -271,13 +337,15 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                   onClick={() => onEdit(exp)}
                   className="w-full px-4 py-3.5 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors"
                 >
-                  {/* Icon */}
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{ background: cat.bg }}
+                  {/* Icon — tappable to filter by category */}
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); onCategorySelect?.(exp.category); }}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0 transition-transform active:scale-90 ${selectedCategory === exp.category ? 'ring-2 ring-offset-1' : ''}`}
+                    style={{ background: cat.bg, ...(selectedCategory === exp.category ? { ringColor: cat.color } : {}) }}
                   >
                     {cat.icon}
-                  </div>
+                  </button>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">

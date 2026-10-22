@@ -187,6 +187,7 @@ export default function App() {
   const [selectedTag,      setSelectedTag]     = useState(null);  // tag string or null
   const [selectedAccount,  setSelectedAccount] = useState(null);  // account id or null
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
+  const [selectedCategory, setSelectedCategory] = useState(null); // categoryId or null (expenses tab filter)
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
 
   const handleTagSelect = (tag) => {
@@ -209,8 +210,16 @@ export default function App() {
     setSelectedPayee(payee);
     setSelectedTag(null);
     setSelectedAccount(null);
-    setTab('expenses');
     setSelectedCategory(null);
+    setTab('expenses');
+  };
+
+  const handleCategorySelect = (catId) => {
+    setSelectedCategory(catId);
+    setSelectedTag(null);
+    setSelectedAccount(null);
+    setSelectedPayee(null);
+    setTab('expenses');
   };
 
   // Demo mode: no Firebase creds
@@ -609,6 +618,9 @@ export default function App() {
             selectedPayee={selectedPayee}
             onClearPayee={() => setSelectedPayee(null)}
             onPayeeSelect={handlePayeeSelect}
+            selectedCategory={selectedCategory}
+            onClearCategory={() => setSelectedCategory(null)}
+            onCategorySelect={handleCategorySelect}
           />
         )}
       </main>
@@ -619,7 +631,7 @@ export default function App() {
           <LayoutDashboard size={20} />
           <span>Home</span>
         </button>
-        <button onClick={() => { setShowSettings(false); setTab('expenses'); setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null); }} className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors ${tab === 'expenses' && !showSettings ? 'text-green-700' : 'text-gray-400'}`}>
+        <button onClick={() => { setShowSettings(false); setTab('expenses'); setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null); setSelectedCategory(null); }} className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors ${tab === 'expenses' && !showSettings ? 'text-green-700' : 'text-gray-400'}`}>
           <List size={20} />
           <span>Expenses</span>
         </button>

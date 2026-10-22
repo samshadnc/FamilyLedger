@@ -181,12 +181,15 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
 
       {/* ── Per-Person Trend — grouped bars ─────────────── */}
       {data.personMonthly.length > 0 && (() => {
-        const COLORS = [
-          { active: '#4F46E5', light: '#c7d2fe' },
-          { active: '#16a34a', light: '#bbf7d0' },
+        const PERSON_COLORS = {
+          Samshad: { active: '#4F46E5', light: '#c7d2fe' },
+          Sahla:   { active: '#16a34a', light: '#bbf7d0' },
+        };
+        const FALLBACK_COLORS = [
           { active: '#d97706', light: '#fde68a' },
           { active: '#db2777', light: '#fbcfe8' },
         ];
+        const getColor = (name, i) => PERSON_COLORS[name] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
         const maxAll = Math.max(...data.personMonthly.flatMap(p => p.monthly), 1);
         return (
           <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
@@ -196,7 +199,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
               <div className="flex gap-3">
                 {data.personMonthly.map(({ name }, i) => (
                   <div key={name} className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length].active }} />
+                    <div className="w-2 h-2 rounded-full" style={{ background: getColor(name, i).active }} />
                     <span className="text-[10px] text-gray-500">{name}</span>
                   </div>
                 ))}
@@ -208,7 +211,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
               {data.personMonthly.map(({ name, monthly }, i) => (
                 <div key={name}>
                   <p className="text-[10px] text-gray-400">{name}</p>
-                  <p className="text-sm font-bold" style={{ color: COLORS[i % COLORS.length].active }}>
+                  <p className="text-sm font-bold" style={{ color: getColor(name, i).active }}>
                     S${fmt(monthly.reduce((s, v) => s + v, 0))}
                   </p>
                 </div>
@@ -216,26 +219,41 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
             </div>
 
             {/* Grouped bar chart */}
-            <div className="flex items-end gap-1 h-20">
+            <div className="flex items-end gap-2 h-24">
               {data.months.map((ym, mi) => {
                 const isSelected = ym === selectedMonth;
                 return (
                   <button
                     key={ym}
                     onClick={() => setSelectedMonth(ym)}
-                    className="flex-1 flex flex-col items-end gap-0.5 active:opacity-60 transition-opacity rounded-sm"
+                    className="flex-1 flex flex-col items-center gap-0.5 active:opacity-60 transition-opacity rounded-sm"
                     style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
                   >
-                    <div className="w-full flex items-end gap-px">
+                    {/* Value labels above bars, pushed to bottom of label area */}
+                    <div className="flex-1 flex flex-col items-center justify-end gap-px mb-0.5">
+                      {data.personMonthly.map(({ name, monthly }, pi) => {
+                        const amt = monthly[mi];
+                        if (!amt) return null;
+                        const col = getColor(name, pi);
+                        return (
+                          <p key={name} className="text-[6px] font-semibold leading-none"
+                            style={{ color: isSelected ? col.active : col.light }}>
+                            {fmtBar(amt)}
+                          </p>
+                        );
+                      })}
+                    </div>
+                    {/* Bars */}
+                    <div className="flex items-end gap-0.5 justify-center">
                       {data.personMonthly.map(({ name, monthly }, pi) => {
                         const amt = monthly[mi];
                         const h = amt > 0 ? Math.max((amt / maxAll) * 44, 3) : 2;
-                        const col = COLORS[pi % COLORS.length];
+                        const col = getColor(name, pi);
                         return (
                           <div
                             key={name}
-                            className="flex-1 rounded-t-sm"
-                            style={{ height: h, background: isSelected ? col.active : col.light }}
+                            className="rounded-t-sm"
+                            style={{ height: h, width: 5, background: isSelected ? col.active : col.light }}
                           />
                         );
                       })}

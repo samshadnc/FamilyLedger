@@ -219,7 +219,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
             </div>
 
             {/* Grouped bar chart */}
-            <div className="flex items-end gap-2 h-24">
+            <div className="flex items-end gap-2 h-28">
               {data.months.map((ym, mi) => {
                 const isSelected = ym === selectedMonth;
                 return (
@@ -236,7 +236,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
                         if (!amt) return null;
                         const col = getColor(name, pi);
                         return (
-                          <p key={name} className="text-[6px] font-semibold leading-none"
+                          <p key={name} className="text-[8px] font-semibold leading-none"
                             style={{ color: isSelected ? col.active : col.light }}>
                             {fmtBar(amt)}
                           </p>

@@ -17,7 +17,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [type,       setType]       = useState(expense?.type     ?? 'expense');
   const [borrowing,  setBorrowing]  = useState(expense?.type === 'investment' && (expense?.amount ?? 0) < 0);
   const [platform,   setPlatform]   = useState(expense?.platform  ?? '');
-  const [amount,     setAmount]     = useState(expense?.amount   ?? '');
+  const [amount,     setAmount]     = useState(expense?.amount !== undefined ? Math.abs(expense.amount) : '');
   const [currency,   setCurrency]   = useState(expense?.currency ?? 'SGD');
   const [category,   setCategory]   = useState(expense?.category ?? 'transport');
   const [account,    setAccount]    = useState(() => {
@@ -71,7 +71,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
 
     setSaveStatus('saving');
     const timer = setTimeout(() => {
-      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) { setSaveStatus(null); return; }
+      if (!amount || isNaN(Number(amount)) || Math.abs(Number(amount)) <= 0) { setSaveStatus(null); return; }
       if (type === 'expense' && !category) { setSaveStatus(null); return; }
       if (!account || !date) { setSaveStatus(null); return; }
 
@@ -108,7 +108,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
 
   function validate() {
     const e = {};
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) e.amount = 'Enter a valid amount';
+    if (!amount || isNaN(Number(amount)) || Math.abs(Number(amount)) <= 0) e.amount = 'Enter a valid amount';
     if (type === 'expense' && !category) e.category = 'Select a category';
     if (type === 'investment' && !platform.trim()) e.platform = borrowing ? 'Enter source / person name' : 'Enter platform / fund name';
     if (!account) e.account = 'Select a payment account';

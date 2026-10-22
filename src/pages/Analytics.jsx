@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { getCategoryById, getBankBrand } from '../constants';
 import BankBadge from '../components/BankBadge';
 
-export default function Analytics({ allExpenses, currentMonth, accountMap }) {
+export default function Analytics({ allExpenses, currentMonth, accountMap, members }) {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   const data = useMemo(() => {
@@ -30,8 +30,10 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
       ? ((thisMonth.total - lastMonth.total) / lastMonth.total) * 100
       : null;
 
-    // Per-person 6-month totals
-    const persons = [...new Set(allExp.map(e => e.addedByName).filter(Boolean))].sort();
+    // Per-person 6-month totals — use settings members so all family appear even with zero data
+    const expPersons = [...new Set(allExp.map(e => e.addedByName).filter(Boolean))];
+    const knownMembers = members && members.length > 0 ? members : expPersons;
+    const persons = [...new Set([...knownMembers, ...expPersons])].sort();
     const personMonthly = persons.map(name => ({
       name,
       monthly: months.map(ym =>
@@ -113,7 +115,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
       .map(([person, total]) => ({ person, total }));
 
     return { months, monthTotals, thisMonth, lastMonth, momChange, personMonthly, tagMonthly, accountsByPerson, topCats, thisMonthTotal, maxAcc, invLifetimeTotal, invByPlatform, invMonthly, borrowLifetimeTotal, borrowByPerson };
-  }, [allExpenses, currentMonth, selectedMonth, accountMap]);
+  }, [allExpenses, currentMonth, selectedMonth, accountMap, members]);
 
   return (
     <div className="pb-24 bg-[#ECEDF0] min-h-screen">
@@ -177,48 +179,77 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
         <p className="text-[10px] text-center text-gray-300 mt-1">Tap a bar to view that month's breakdown</p>
       </div>
 
-      {/* ── Per-Person Trend ─────────────────────────────── */}
-      {data.personMonthly.length > 0 && (
-        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Per Person · 12 months</p>
-          {data.personMonthly.map(({ name, monthly }) => {
-            const maxP = Math.max(...monthly, 1);
-            const total6m = monthly.reduce((s, v) => s + v, 0);
-            return (
-              <div key={name} className="mb-4 last:mb-0">
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-sm font-semibold text-gray-800">{name}</p>
-                  <p className="text-xs font-semibold text-gray-500">S${fmt(total6m)} total</p>
-                </div>
-                <div className="flex items-end gap-1 h-14">
-                  {monthly.map((amt, i) => {
-                    const h = amt > 0 ? Math.max((amt / maxP) * 32, 3) : 3;
-                    const ym = data.months[i];
-                    const isSelected = ym === selectedMonth;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedMonth(ym)}
-                        className="flex-1 flex flex-col items-center gap-0.5 rounded active:opacity-60 transition-opacity"
-                        style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
-                      >
-                        {amt > 0 && <p className="text-[7px] font-semibold leading-none" style={{ color: isSelected ? '#4F46E5' : '#9ca3af' }}>{fmtBar(amt)}</p>}
-                        <div
-                          className="w-full rounded-t-sm"
-                          style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
-                        />
-                        <p className="text-[8px]" style={{ color: isSelected ? '#4F46E5' : '#d1d5db' }}>
-                          {shortMonth(ym)}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
+      {/* ── Per-Person Trend — grouped bars ─────────────── */}
+      {data.personMonthly.length > 0 && (() => {
+        const COLORS = [
+          { active: '#4F46E5', light: '#c7d2fe' },
+          { active: '#16a34a', light: '#bbf7d0' },
+          { active: '#d97706', light: '#fde68a' },
+          { active: '#db2777', light: '#fbcfe8' },
+        ];
+        const maxAll = Math.max(...data.personMonthly.flatMap(p => p.monthly), 1);
+        return (
+          <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
+            {/* Header + legend */}
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Per Person · 12 months</p>
+              <div className="flex gap-3">
+                {data.personMonthly.map(({ name }, i) => (
+                  <div key={name} className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length].active }} />
+                    <span className="text-[10px] text-gray-500">{name}</span>
+                  </div>
+                ))}
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+
+            {/* Per-person totals */}
+            <div className="flex gap-4 mb-3">
+              {data.personMonthly.map(({ name, monthly }, i) => (
+                <div key={name}>
+                  <p className="text-[10px] text-gray-400">{name}</p>
+                  <p className="text-sm font-bold" style={{ color: COLORS[i % COLORS.length].active }}>
+                    S${fmt(monthly.reduce((s, v) => s + v, 0))}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Grouped bar chart */}
+            <div className="flex items-end gap-1 h-20">
+              {data.months.map((ym, mi) => {
+                const isSelected = ym === selectedMonth;
+                return (
+                  <button
+                    key={ym}
+                    onClick={() => setSelectedMonth(ym)}
+                    className="flex-1 flex flex-col items-end gap-0.5 active:opacity-60 transition-opacity rounded-sm"
+                    style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
+                  >
+                    <div className="w-full flex items-end gap-px">
+                      {data.personMonthly.map(({ name, monthly }, pi) => {
+                        const amt = monthly[mi];
+                        const h = amt > 0 ? Math.max((amt / maxAll) * 44, 3) : 2;
+                        const col = COLORS[pi % COLORS.length];
+                        return (
+                          <div
+                            key={name}
+                            className="flex-1 rounded-t-sm"
+                            style={{ height: h, background: isSelected ? col.active : col.light }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <p className="text-[8px] w-full text-center" style={{ color: isSelected ? '#4F46E5' : '#d1d5db' }}>
+                      {shortMonth(ym)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Per-Tag Trend ────────────────────────────────── */}
       {data.tagMonthly.length > 0 && (

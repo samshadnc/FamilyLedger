@@ -187,7 +187,6 @@ export default function App() {
   const [selectedTag,      setSelectedTag]     = useState(null);  // tag string or null
   const [selectedAccount,  setSelectedAccount] = useState(null);  // account id or null
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
-  const [selectedCategory, setSelectedCategory] = useState(null); // categoryId or null (expenses tab filter)
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
 
   const handleTagSelect = (tag) => {
@@ -599,6 +598,7 @@ export default function App() {
             allExpenses={allExpenses}
             currentMonth={month}
             accountMap={accountMap}
+            members={Object.keys(settings.accounts ?? {})}
           />
         ) : (
           <Expenses

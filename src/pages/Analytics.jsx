@@ -393,7 +393,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Investments</p>
             <div className="text-right">
-              <p className="text-[10px] text-gray-400">Lifetime total</p>
+              <p className="text-[10px] text-gray-400">Last 5 years</p>
               <p className="text-base font-bold text-violet-600">S${fmt(data.invLifetimeTotal)}</p>
             </div>
           </div>
@@ -448,7 +448,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Borrowings</p>
             <div className="text-right">
-              <p className="text-[10px] text-gray-400">Total borrowed</p>
+              <p className="text-[10px] text-gray-400">Last 5 years</p>
               <p className="text-base font-bold text-orange-500">S${fmt(data.borrowLifetimeTotal)}</p>
             </div>
           </div>

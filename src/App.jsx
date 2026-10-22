@@ -367,7 +367,7 @@ export default function App() {
   useEffect(() => {
     if (isDemo || !user) return;
     const d = new Date();
-    d.setMonth(d.getMonth() - 23);
+    d.setMonth(d.getMonth() - 59);
     const twoYearsAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
     const q = query(
       collection(db, 'expenses'),

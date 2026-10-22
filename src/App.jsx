@@ -412,6 +412,12 @@ export default function App() {
     setShowModal(false); setEditTarget(null);
   };
 
+  const handleAutoSave = async (data) => {
+    if (!profile || !editTarget || isDemo) return;
+    const payload = { ...data, addedBy: profile.uid, addedByName: profile.displayName, updatedAt: serverTimestamp() };
+    await updateDoc(doc(db, 'expenses', editTarget.id), payload);
+  };
+
   const openAdd  = () => { setEditTarget(null); setShowModal(true); };
   const handleEdit = (exp) => { setEditTarget(exp); setShowModal(true); };
 
@@ -611,6 +617,7 @@ export default function App() {
         <ExpenseModal
           expense={editTarget}
           onSave={handleSave}
+          onAutoSave={editTarget ? handleAutoSave : undefined}
           onClose={() => { setShowModal(false); setEditTarget(null); }}
           onDelete={handleDelete}
           profile={profile}

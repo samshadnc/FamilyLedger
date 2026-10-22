@@ -6,9 +6,11 @@ import BankBadge from './BankBadge';
 import { saveReceiptBlob, getReceiptBlob, deleteReceiptBlob } from '../utils/receiptDb';
 import { runOCR } from '../hooks/useOCR';
 
-export default function ExpenseModal({ expense, onSave, onClose, onDelete, profile, availableTags, availableAccounts, readOnly }) {
+export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onDelete, profile, availableTags, availableAccounts, readOnly }) {
   const editing = !!expense;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
+  const didMountRef = useRef(false);
 
   const [type,       setType]       = useState(expense?.type     ?? 'expense');
   const [amount,     setAmount]     = useState(expense?.amount   ?? '');
@@ -45,6 +47,38 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
     }).catch(() => {});
     return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save debounce when editing
+  useEffect(() => {
+    if (!didMountRef.current) { didMountRef.current = true; return; }
+    if (!editing || readOnly || !onAutoSave) return;
+
+    setSaveStatus('saving');
+    const timer = setTimeout(() => {
+      if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) { setSaveStatus(null); return; }
+      if (type === 'expense' && !category) { setSaveStatus(null); return; }
+      if (!account || !date) { setSaveStatus(null); return; }
+
+      const parsedAmount = parseFloat(Number(amount).toFixed(2));
+      onAutoSave({
+        type,
+        amount:    parsedAmount,
+        currency,
+        sgdAmount: currency === 'SGD' ? parsedAmount : (inrToSgd(parsedAmount) ?? null),
+        category:  type === 'income' ? 'other' : category,
+        account:   account || null,
+        payee:     payee.trim(),
+        tags,
+        note:      note.trim(),
+        date,
+        attachment: attachment ?? null,
+      });
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(null), 3000);
+    }, 700);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, amount, currency, category, account, payee, tags, note, date, attachment]);
 
   // Accounts filtered to current user (use passed-in accounts or fall back to constants)
   const accountsSource = availableAccounts ?? ACCOUNTS;
@@ -145,6 +179,8 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
             {readOnly && (
               <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">View only</span>
             )}
+            {saveStatus === 'saving' && <span className="text-[11px] text-gray-400">Saving…</span>}
+            {saveStatus === 'saved'  && <span className="text-[11px] text-green-600 font-semibold">✓ Saved</span>}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
@@ -510,14 +546,24 @@ export default function ExpenseModal({ expense, onSave, onClose, onDelete, profi
             </button>
           ) : (
             <>
-              <button
-                type="submit"
-                className={`w-full text-white font-bold rounded-xl py-3.5 text-sm transition-colors ${
-                  type === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-              >
-                {editing ? 'Save Changes' : type === 'income' ? '+ Add Income' : '+ Add Expense'}
-              </button>
+              {editing && onAutoSave ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full bg-gray-100 text-gray-700 font-bold rounded-xl py-3.5 text-sm hover:bg-gray-200 transition-colors"
+                >
+                  Done
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className={`w-full text-white font-bold rounded-xl py-3.5 text-sm transition-colors ${
+                    type === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
+                >
+                  {editing ? 'Save Changes' : type === 'income' ? '+ Add Income' : '+ Add Expense'}
+                </button>
+              )}
 
               {/* Delete — only in edit mode */}
               {editing && onDelete && (

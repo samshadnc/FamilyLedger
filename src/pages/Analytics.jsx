@@ -149,8 +149,8 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
           </div>
         </div>
 
-        {/* 6-month mini bars — tappable */}
-        <div className="flex items-end gap-1.5 mt-4 h-16">
+        {/* 12-month mini bars — tappable */}
+        <div className="flex items-end gap-1.5 mt-4 h-20">
           {data.monthTotals.map(({ ym, total }) => {
             const maxT = Math.max(...data.monthTotals.map(m => m.total), 1);
             const h = total > 0 ? Math.max((total / maxT) * 44, 4) : 3;
@@ -159,9 +159,10 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
               <button
                 key={ym}
                 onClick={() => setSelectedMonth(ym)}
-                className="flex-1 flex flex-col items-center gap-1 rounded-lg pb-0.5 active:opacity-60 transition-opacity"
+                className="flex-1 flex flex-col items-center gap-0.5 rounded-lg pb-0.5 active:opacity-60 transition-opacity"
                 style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
               >
+                {total > 0 && <p className="text-[7px] font-semibold leading-none" style={{ color: isSelected ? '#4F46E5' : '#9ca3af' }}>{fmtBar(total)}</p>}
                 <div
                   className="w-full rounded-t-md"
                   style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
@@ -189,9 +190,9 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
                   <p className="text-sm font-semibold text-gray-800">{name}</p>
                   <p className="text-xs font-semibold text-gray-500">S${fmt(total6m)} total</p>
                 </div>
-                <div className="flex items-end gap-1 h-10">
+                <div className="flex items-end gap-1 h-14">
                   {monthly.map((amt, i) => {
-                    const h = amt > 0 ? Math.max((amt / maxP) * 36, 3) : 3;
+                    const h = amt > 0 ? Math.max((amt / maxP) * 32, 3) : 3;
                     const ym = data.months[i];
                     const isSelected = ym === selectedMonth;
                     return (
@@ -201,6 +202,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
                         className="flex-1 flex flex-col items-center gap-0.5 rounded active:opacity-60 transition-opacity"
                         style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
                       >
+                        {amt > 0 && <p className="text-[7px] font-semibold leading-none" style={{ color: isSelected ? '#4F46E5' : '#9ca3af' }}>{fmtBar(amt)}</p>}
                         <div
                           className="w-full rounded-t-sm"
                           style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
@@ -233,9 +235,9 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
                   </div>
                   <p className="text-xs font-semibold text-gray-500">S${fmt(total6m)} total</p>
                 </div>
-                <div className="flex items-end gap-1 h-10">
+                <div className="flex items-end gap-1 h-14">
                   {monthly.map((amt, i) => {
-                    const h = amt > 0 ? Math.max((amt / maxT) * 36, 3) : 3;
+                    const h = amt > 0 ? Math.max((amt / maxT) * 32, 3) : 3;
                     const ym = data.months[i];
                     const isSelected = ym === selectedMonth;
                     return (
@@ -245,6 +247,7 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
                         className="flex-1 flex flex-col items-center gap-0.5 rounded active:opacity-60 transition-opacity"
                         style={{ background: isSelected ? '#eef2ff' : 'transparent' }}
                       >
+                        {amt > 0 && <p className="text-[7px] font-semibold leading-none" style={{ color: isSelected ? '#4F46E5' : '#9ca3af' }}>{fmtBar(amt)}</p>}
                         <div
                           className="w-full rounded-t-sm"
                           style={{ height: h, background: isSelected ? '#4F46E5' : '#c7d2fe' }}
@@ -429,6 +432,11 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
 
 function fmt(n) {
   return Number(n).toLocaleString('en-SG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtBar(n) {
+  if (!n) return '';
+  if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k';
+  return n.toFixed(0);
 }
 function shortMonth(ym) {
   if (!ym) return '';

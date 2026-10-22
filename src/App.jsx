@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   collection, addDoc, updateDoc, deleteDoc, setDoc,
   doc, query, where, orderBy, onSnapshot, serverTimestamp,
@@ -389,6 +389,18 @@ export default function App() {
     else { setTimeout(attempt, 3000); }
   }, [user, isDemo]);
 
+  // Other family members derived from expense history (used for proxy entry)
+  const otherMembers = useMemo(() => {
+    if (!allExpenses || !profile) return [];
+    const seen = new Map();
+    for (const exp of allExpenses) {
+      if (exp.addedBy && exp.addedBy !== profile.uid && exp.addedByName) {
+        seen.set(exp.addedBy, exp.addedByName);
+      }
+    }
+    return Array.from(seen.entries()).map(([uid, displayName]) => ({ uid, displayName }));
+  }, [allExpenses, profile]);
+
   const handleSave = async (data) => {
     if (isDemo) {
       if (editTarget) {
@@ -396,14 +408,24 @@ export default function App() {
         setExpenses(prev => prev.map(e => e.id === editTarget.id ? updated : e));
         setAllExpenses(prev => prev.map(e => e.id === editTarget.id ? updated : e));
       } else {
-        const newExp = { id: String(Date.now()), ...data, addedBy: profile.uid, addedByName: profile.displayName };
+        const newExp = {
+          id: String(Date.now()),
+          addedBy: profile.uid, addedByName: profile.displayName,
+          ...data,
+        };
         setExpenses(prev => [newExp, ...prev]);
         setAllExpenses(prev => [newExp, ...prev]);
       }
       setShowModal(false); setEditTarget(null); return;
     }
     if (!profile) return;
-    const payload = { ...data, addedBy: profile.uid, addedByName: profile.displayName, updatedAt: serverTimestamp() };
+    // data.addedBy/addedByName may be set by the modal (proxy entry) — honour them
+    const payload = {
+      addedBy: profile.uid,
+      addedByName: profile.displayName,
+      ...data,
+      updatedAt: serverTimestamp(),
+    };
     if (editTarget) {
       await updateDoc(doc(db, 'expenses', editTarget.id), payload);
     } else {
@@ -618,6 +640,8 @@ export default function App() {
           expense={editTarget}
           onSave={handleSave}
           onAutoSave={editTarget ? handleAutoSave : undefined}
+          allowAddForOthers={!editTarget && settings.allowEditOthers}
+          otherMembers={otherMembers}
           onClose={() => { setShowModal(false); setEditTarget(null); }}
           onDelete={handleDelete}
           profile={profile}

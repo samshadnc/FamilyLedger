@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Camera, Image, Tag, Loader2, RefreshCw } from 'lucide-react';
-import { CATEGORIES, CURRENCIES, ACCOUNTS, DEFAULT_TAGS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET } from '../constants';
+import { CATEGORIES, CURRENCIES, ACCOUNTS, DEFAULT_TAGS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, AVATARS } from '../constants';
 import { useExchangeRate } from '../hooks/useExchangeRate';
 import BankBadge from './BankBadge';
 import { saveReceiptBlob, getReceiptBlob, deleteReceiptBlob } from '../utils/receiptDb';
 import { runOCR } from '../hooks/useOCR';
 
-export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onDelete, profile, availableTags, availableAccounts, readOnly }) {
+export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onDelete, profile, availableTags, availableAccounts, readOnly, allowAddForOthers, otherMembers }) {
   const editing = !!expense;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
   const didMountRef = useRef(false);
+  // proxyUser: null = adding for self, { uid, displayName } = adding for another member
+  const [proxyUser, setProxyUser] = useState(null);
 
   const [type,       setType]       = useState(expense?.type     ?? 'expense');
   const [amount,     setAmount]     = useState(expense?.amount   ?? '');
@@ -92,9 +94,9 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, amount, currency, category, account, payee, tags, note, date, attachment]);
 
-  // Accounts filtered to current user (use passed-in accounts or fall back to constants)
+  // Accounts filtered to the active user (self or proxy)
   const accountsSource = availableAccounts ?? ACCOUNTS;
-  const userName = profile?.displayName ?? '';
+  const userName = proxyUser ? proxyUser.displayName : (profile?.displayName ?? '');
   const userAccounts = accountsSource[userName] ?? Object.values(accountsSource).flat();
 
   // Tags list (use passed-in tags or fall back to defaults)
@@ -114,7 +116,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     const parsedAmount = parseFloat(Number(amount).toFixed(2));
-    onSave({
+    const payload = {
       type,
       amount:      parsedAmount,
       currency,
@@ -126,7 +128,13 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
       note:        note.trim(),
       date,
       attachment:  attachment ?? null,
-    });
+    };
+    // Proxy entry: attribute to the selected other member
+    if (proxyUser) {
+      payload.addedBy = proxyUser.uid;
+      payload.addedByName = proxyUser.displayName;
+    }
+    onSave(payload);
   };
 
   const handleFile = async (e) => {
@@ -200,6 +208,29 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
         </div>
 
         <form onSubmit={submit} className="px-5 py-4 space-y-4">
+
+          {/* Proxy user picker */}
+          {allowAddForOthers && !editing && otherMembers.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Adding for</label>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => { setProxyUser(null); setAccount(''); }}
+                  className={`flex flex-col items-center gap-1 ${!proxyUser ? 'opacity-100' : 'opacity-50'}`}>
+                  <img src={AVATARS[profile?.displayName] || ''} alt={profile?.displayName}
+                    className={`w-12 h-12 rounded-full object-cover border-2 ${!proxyUser ? 'border-indigo-500' : 'border-gray-200'}`} />
+                  <span className="text-[10px] text-gray-600 font-medium">{profile?.displayName}</span>
+                </button>
+                {otherMembers.map(m => (
+                  <button key={m.uid} type="button" onClick={() => { setProxyUser(m); setAccount(''); }}
+                    className={`flex flex-col items-center gap-1 ${proxyUser?.uid === m.uid ? 'opacity-100' : 'opacity-50'}`}>
+                    <img src={AVATARS[m.displayName] || ''} alt={m.displayName}
+                      className={`w-12 h-12 rounded-full object-cover border-2 ${proxyUser?.uid === m.uid ? 'border-indigo-500' : 'border-gray-200'}`} />
+                    <span className="text-[10px] text-gray-600 font-medium">{m.displayName}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Type toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">

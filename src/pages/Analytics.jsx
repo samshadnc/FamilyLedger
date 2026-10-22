@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { getCategoryById, getBankBrand } from '../constants';
 import BankBadge from '../components/BankBadge';
 
-export default function Analytics({ allExpenses, currentMonth, accountMap, members }) {
+export default function Analytics({ allExpenses, currentMonth, accountMap, members, onPayeeSelect }) {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   const data = useMemo(() => {
@@ -426,15 +426,15 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
               {data.invByPlatform.map(({ platform, total }) => {
                 const pct = data.invLifetimeTotal > 0 ? (total / data.invLifetimeTotal) * 100 : 0;
                 return (
-                  <div key={platform}>
+                  <button key={platform} className="w-full text-left active:opacity-60 transition-opacity" onClick={() => onPayeeSelect?.(platform)}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="font-medium text-gray-700 truncate max-w-[60%]">{platform}</span>
-                      <span className="text-gray-500">S${fmt(total)} <span className="text-gray-400">({pct.toFixed(0)}%)</span></span>
+                      <span className="text-gray-500 flex items-center gap-1">S${fmt(total)} <span className="text-gray-400">({pct.toFixed(0)}%)</span> <span className="text-gray-300">›</span></span>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-violet-500" style={{ width: `${pct}%` }} />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -460,15 +460,15 @@ export default function Analytics({ allExpenses, currentMonth, accountMap, membe
               {data.borrowByPerson.map(({ person, total }) => {
                 const pct = data.borrowLifetimeTotal > 0 ? (total / data.borrowLifetimeTotal) * 100 : 0;
                 return (
-                  <div key={person}>
+                  <button key={person} className="w-full text-left active:opacity-60 transition-opacity" onClick={() => onPayeeSelect?.(person)}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="font-medium text-gray-700 truncate max-w-[60%]">{person}</span>
-                      <span className="text-gray-500">S${fmt(total)} <span className="text-gray-400">({pct.toFixed(0)}%)</span></span>
+                      <span className="text-gray-500 flex items-center gap-1">S${fmt(total)} <span className="text-gray-400">({pct.toFixed(0)}%)</span> <span className="text-gray-300">›</span></span>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-orange-400" style={{ width: `${pct}%` }} />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>

@@ -11,7 +11,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
     : selectedAccount
     ? expenses.filter(e => e.account === selectedAccount)
     : selectedPayee
-    ? (allExpenses ?? expenses).filter(e => e.payee === selectedPayee && e.type !== 'income')
+    ? (allExpenses ?? expenses).filter(e => (e.payee === selectedPayee || e.platform === selectedPayee) && e.type !== 'income')
     : selectedCategory
     ? expenses.filter(e => e.category === selectedCategory && e.type !== 'income')
     : expenses;
@@ -51,7 +51,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
       const d = new Date(now.getFullYear(), now.getMonth() - (11 - i));
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleString('en-SG', { month: 'short' });
-      const total = (allExpenses ?? []).filter(e => e.payee === selectedPayee && e.date.startsWith(ym) && e.type !== 'income').reduce((s, e) => s + sgdVal(e), 0);
+      const total = (allExpenses ?? []).filter(e => (e.payee === selectedPayee || e.platform === selectedPayee) && e.date.startsWith(ym) && e.type !== 'income').reduce((s, e) => s + sgdVal(e), 0);
       const isCurrent = i === 11;
       return { ym, label, total, isCurrent };
     });

@@ -599,6 +599,7 @@ export default function App() {
             currentMonth={month}
             accountMap={accountMap}
             members={Object.keys(settings.accounts ?? {})}
+            onPayeeSelect={handlePayeeSelect}
           />
         ) : (
           <Expenses

@@ -81,10 +81,13 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
 
     const thisMonthTotal = thisMonth.total;
 
-    // Investment analytics
-    const invLifetimeTotal = allInv.reduce((s, e) => s + sgdVal(e), 0);
+    // Investment analytics — split into invested (+) and borrowed (-)
+    const allInvested = allInv.filter(e => sgdVal(e) >= 0);
+    const allBorrowed = allInv.filter(e => sgdVal(e) < 0);
+
+    const invLifetimeTotal = allInvested.reduce((s, e) => s + sgdVal(e), 0);
     const invPlatformMap = {};
-    allInv.forEach(e => {
+    allInvested.forEach(e => {
       const p = e.platform || e.payee || 'Other';
       invPlatformMap[p] = (invPlatformMap[p] ?? 0) + sgdVal(e);
     });
@@ -95,11 +98,21 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
     const invMonthly = months.map(ym => ({
       ym,
       label: new Date(ym + '-01').toLocaleString('en-SG', { month: 'short' }),
-      total: allInv.filter(e => e.date.startsWith(ym)).reduce((s, e) => s + sgdVal(e), 0),
+      total: allInvested.filter(e => e.date.startsWith(ym)).reduce((s, e) => s + sgdVal(e), 0),
       isCurrent: ym === currentMonth,
     }));
 
-    return { months, monthTotals, thisMonth, lastMonth, momChange, personMonthly, tagMonthly, accountsByPerson, topCats, thisMonthTotal, maxAcc, invLifetimeTotal, invByPlatform, invMonthly };
+    const borrowLifetimeTotal = allBorrowed.reduce((s, e) => s + Math.abs(sgdVal(e)), 0);
+    const borrowByPersonMap = {};
+    allBorrowed.forEach(e => {
+      const p = e.platform || e.payee || 'Other';
+      borrowByPersonMap[p] = (borrowByPersonMap[p] ?? 0) + Math.abs(sgdVal(e));
+    });
+    const borrowByPerson = Object.entries(borrowByPersonMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([person, total]) => ({ person, total }));
+
+    return { months, monthTotals, thisMonth, lastMonth, momChange, personMonthly, tagMonthly, accountsByPerson, topCats, thisMonthTotal, maxAcc, invLifetimeTotal, invByPlatform, invMonthly, borrowLifetimeTotal, borrowByPerson };
   }, [allExpenses, currentMonth, selectedMonth, accountMap]);
 
   return (
@@ -368,6 +381,40 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-violet-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Borrowings ────────────────────────────────────── */}
+      {data.borrowLifetimeTotal > 0 && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Borrowings</p>
+            <div className="text-right">
+              <p className="text-[10px] text-gray-400">Total borrowed</p>
+              <p className="text-base font-bold text-orange-500">S${fmt(data.borrowLifetimeTotal)}</p>
+            </div>
+          </div>
+
+          {/* By person breakdown */}
+          {data.borrowByPerson.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide">By source</p>
+              {data.borrowByPerson.map(({ person, total }) => {
+                const pct = data.borrowLifetimeTotal > 0 ? (total / data.borrowLifetimeTotal) * 100 : 0;
+                return (
+                  <div key={person}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-gray-700 truncate max-w-[60%]">{person}</span>
+                      <span className="text-gray-500">S${fmt(total)} <span className="text-gray-400">({pct.toFixed(0)}%)</span></span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-orange-400" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );

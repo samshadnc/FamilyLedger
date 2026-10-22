@@ -15,6 +15,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [proxyUser, setProxyUser] = useState(null);
 
   const [type,       setType]       = useState(expense?.type     ?? 'expense');
+  const [borrowing,  setBorrowing]  = useState(expense?.type === 'investment' && (expense?.amount ?? 0) < 0);
   const [platform,   setPlatform]   = useState(expense?.platform  ?? '');
   const [amount,     setAmount]     = useState(expense?.amount   ?? '');
   const [currency,   setCurrency]   = useState(expense?.currency ?? 'SGD');
@@ -75,11 +76,12 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
       if (!account || !date) { setSaveStatus(null); return; }
 
       const parsedAmount = parseFloat(Number(amount).toFixed(2));
+      const signedAmount = type === 'investment' && borrowing ? -parsedAmount : parsedAmount;
       onAutoSave({
         type,
-        amount:    parsedAmount,
+        amount:    signedAmount,
         currency,
-        sgdAmount: currency === 'SGD' ? parsedAmount : (inrToSgd(parsedAmount) ?? null),
+        sgdAmount: currency === 'SGD' ? signedAmount : (inrToSgd(signedAmount) ?? null),
         category:  type === 'income' || type === 'investment' ? 'other' : category,
         platform:  type === 'investment' ? platform.trim() : undefined,
         account:   account || null,
@@ -94,7 +96,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
     }, 700);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, amount, currency, category, account, payee, tags, note, date, attachment]);
+  }, [type, borrowing, amount, currency, category, account, payee, tags, note, date, attachment]);
 
   // Accounts filtered to the active user (self or proxy)
   const accountsSource = availableAccounts ?? ACCOUNTS;
@@ -108,7 +110,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
     const e = {};
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) e.amount = 'Enter a valid amount';
     if (type === 'expense' && !category) e.category = 'Select a category';
-    if (type === 'investment' && !platform.trim()) e.platform = 'Enter platform / fund name';
+    if (type === 'investment' && !platform.trim()) e.platform = borrowing ? 'Enter source / person name' : 'Enter platform / fund name';
     if (!account) e.account = 'Select a payment account';
     if (!date) e.date = 'Select a date';
     return e;
@@ -119,11 +121,12 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     const parsedAmount = parseFloat(Number(amount).toFixed(2));
+    const signedAmount = type === 'investment' && borrowing ? -parsedAmount : parsedAmount;
     const payload = {
       type,
-      amount:      parsedAmount,
+      amount:      signedAmount,
       currency,
-      sgdAmount:   currency === 'SGD' ? parsedAmount : (inrToSgd(parsedAmount) ?? null),
+      sgdAmount:   currency === 'SGD' ? signedAmount : (inrToSgd(signedAmount) ?? null),
       category:    type === 'income' || type === 'investment' ? 'other' : category,
       platform:    type === 'investment' ? platform.trim() : undefined,
       account:     account || null,
@@ -246,7 +249,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
               <button
                 key={t.value}
                 type="button"
-                onClick={() => !readOnly && setType(t.value)}
+                onClick={() => { if (!readOnly) { setType(t.value); if (t.value !== 'investment') setBorrowing(false); } }}
                 disabled={readOnly}
                 className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                   type === t.value ? t.active : 'text-gray-500'
@@ -256,6 +259,28 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
               </button>
             ))}
           </div>
+
+          {/* Invested / Borrowed sub-toggle — only when investment type selected */}
+          {type === 'investment' && (
+            <div className="flex bg-violet-50 rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => !readOnly && setBorrowing(false)}
+                disabled={readOnly}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${!borrowing ? 'bg-violet-600 text-white shadow-sm' : 'text-violet-400'}`}
+              >
+                📈 Invested
+              </button>
+              <button
+                type="button"
+                onClick={() => !readOnly && setBorrowing(true)}
+                disabled={readOnly}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${borrowing ? 'bg-orange-500 text-white shadow-sm' : 'text-violet-400'}`}
+              >
+                💸 Borrowed
+              </button>
+            </div>
+          )}
 
           {/* Amount + Currency + Account (bank logos on the right) */}
           <div>
@@ -357,20 +382,20 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
             </div>
           )}
 
-          {/* Platform — only for investments */}
+          {/* Platform / Source — only for investments */}
           {type === 'investment' && (
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                Platform / Fund <span className="text-red-400">*</span>
+                {borrowing ? 'Source / Person' : 'Platform / Fund'} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
                 value={platform}
                 onChange={e => !readOnly && (setPlatform(e.target.value), setErrors(er => ({ ...er, platform: undefined })))}
                 readOnly={readOnly}
-                placeholder="e.g. Groww SIP, Zerodha, SBI FD, PPF"
+                placeholder={borrowing ? 'e.g. Friend Ali, Bank loan, Family' : 'e.g. Groww SIP, Zerodha, SBI FD, PPF'}
                 maxLength={60}
-                className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 ${errors.platform ? 'border-red-300' : 'border-gray-200'} ${readOnly ? 'bg-gray-50 text-gray-600' : ''}`}
+                className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${borrowing ? 'focus:ring-orange-400' : 'focus:ring-violet-400'} ${errors.platform ? 'border-red-300' : 'border-gray-200'} ${readOnly ? 'bg-gray-50 text-gray-600' : ''}`}
               />
               {errors.platform && <p className="text-xs text-red-500 mt-1">{errors.platform}</p>}
             </div>
@@ -625,11 +650,12 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                   type="submit"
                   className={`w-full text-white font-bold rounded-xl py-3.5 text-sm transition-colors ${
                     type === 'income' ? 'bg-green-600 hover:bg-green-700'
+                    : type === 'investment' && borrowing ? 'bg-orange-500 hover:bg-orange-600'
                     : type === 'investment' ? 'bg-violet-600 hover:bg-violet-700'
                     : 'bg-indigo-600 hover:bg-indigo-700'
                   }`}
                 >
-                  {editing ? 'Save Changes' : type === 'income' ? '+ Add Income' : type === 'investment' ? '📈 Log Investment' : '+ Add Expense'}
+                  {editing ? 'Save Changes' : type === 'income' ? '+ Add Income' : type === 'investment' && borrowing ? '💸 Log Borrowing' : type === 'investment' ? '📈 Log Investment' : '+ Add Expense'}
                 </button>
               )}
 

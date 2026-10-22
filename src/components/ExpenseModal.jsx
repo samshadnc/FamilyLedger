@@ -15,6 +15,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [proxyUser, setProxyUser] = useState(null);
 
   const [type,       setType]       = useState(expense?.type     ?? 'expense');
+  const [platform,   setPlatform]   = useState(expense?.platform  ?? '');
   const [amount,     setAmount]     = useState(expense?.amount   ?? '');
   const [currency,   setCurrency]   = useState(expense?.currency ?? 'SGD');
   const [category,   setCategory]   = useState(expense?.category ?? 'transport');
@@ -79,7 +80,8 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
         amount:    parsedAmount,
         currency,
         sgdAmount: currency === 'SGD' ? parsedAmount : (inrToSgd(parsedAmount) ?? null),
-        category:  type === 'income' ? 'other' : category,
+        category:  type === 'income' || type === 'investment' ? 'other' : category,
+        platform:  type === 'investment' ? platform.trim() : undefined,
         account:   account || null,
         payee:     payee.trim(),
         tags,
@@ -106,6 +108,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
     const e = {};
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) e.amount = 'Enter a valid amount';
     if (type === 'expense' && !category) e.category = 'Select a category';
+    if (type === 'investment' && !platform.trim()) e.platform = 'Enter platform / fund name';
     if (!account) e.account = 'Select a payment account';
     if (!date) e.date = 'Select a date';
     return e;
@@ -121,7 +124,8 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
       amount:      parsedAmount,
       currency,
       sgdAmount:   currency === 'SGD' ? parsedAmount : (inrToSgd(parsedAmount) ?? null),
-      category:    type === 'income' ? 'other' : category,
+      category:    type === 'income' || type === 'investment' ? 'other' : category,
+      platform:    type === 'investment' ? platform.trim() : undefined,
       account:     account || null,
       payee:       payee.trim(),
       tags,
@@ -235,8 +239,9 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
           {/* Type toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
             {[
-              { value: 'expense', label: '↑ Expense', active: 'bg-red-500 text-white' },
-              { value: 'income',  label: '↓ Income',  active: 'bg-green-600 text-white' },
+              { value: 'expense',    label: '↑ Expense',    active: 'bg-red-500 text-white' },
+              { value: 'income',     label: '↓ Income',     active: 'bg-green-600 text-white' },
+              { value: 'investment', label: '📈 Invest',    active: 'bg-violet-600 text-white' },
             ].map(t => (
               <button
                 key={t.value}
@@ -352,6 +357,24 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
             </div>
           )}
 
+          {/* Platform — only for investments */}
+          {type === 'investment' && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                Platform / Fund <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={platform}
+                onChange={e => !readOnly && (setPlatform(e.target.value), setErrors(er => ({ ...er, platform: undefined })))}
+                readOnly={readOnly}
+                placeholder="e.g. Groww SIP, Zerodha, SBI FD, PPF"
+                maxLength={60}
+                className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 ${errors.platform ? 'border-red-300' : 'border-gray-200'} ${readOnly ? 'bg-gray-50 text-gray-600' : ''}`}
+              />
+              {errors.platform && <p className="text-xs text-red-500 mt-1">{errors.platform}</p>}
+            </div>
+          )}
 
           {/* Payee */}
           <div>
@@ -601,10 +624,12 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                 <button
                   type="submit"
                   className={`w-full text-white font-bold rounded-xl py-3.5 text-sm transition-colors ${
-                    type === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                    type === 'income' ? 'bg-green-600 hover:bg-green-700'
+                    : type === 'investment' ? 'bg-violet-600 hover:bg-violet-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
                   }`}
                 >
-                  {editing ? 'Save Changes' : type === 'income' ? '+ Add Income' : '+ Add Expense'}
+                  {editing ? 'Save Changes' : type === 'income' ? '+ Add Income' : type === 'investment' ? '📈 Log Investment' : '+ Add Expense'}
                 </button>
               )}
 

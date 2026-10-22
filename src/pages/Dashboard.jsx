@@ -11,7 +11,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
   const searchRef = useRef(null);
 
   const {
-    totalExpense, totalIncome, byCategoryByCur,
+    totalExpense, totalIncome, investmentTotal, byCategoryByCur,
     byPerson, recentExpenses, dailyData, categoryTotals,
   } = useMemo(() => {
     let expense = 0, income = 0;
@@ -23,6 +23,8 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       const sgdAmt = exp.currency === 'SGD' ? exp.amount : (exp.sgdAmount ?? 0);
       if (exp.type === 'income') {
         income += sgdAmt;
+      } else if (exp.type === 'investment') {
+        // investments tracked separately — don't count as spending
       } else {
         expense += sgdAmt;
         catMap[exp.category] = (catMap[exp.category] ?? 0) + sgdAmt;
@@ -31,10 +33,14 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       }
       const n = exp.addedByName ?? 'Unknown';
       if (!bp[n]) bp[n] = { SGD: 0 };
-      if (exp.type !== 'income') {
+      if (exp.type !== 'income' && exp.type !== 'investment') {
         bp[n].SGD = (bp[n].SGD ?? 0) + sgdAmt;
       }
     });
+
+    const investmentTotal = expenses
+      .filter(e => e.type === 'investment')
+      .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
 
     // Build daily bar data (all days of month)
     const [y, m] = month.split('-');
@@ -50,7 +56,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       .map(([id, amount]) => ({ id, amount }));
 
     const recent = [...expenses]
-      .filter(e => e.type !== 'income')
+      .filter(e => e.type !== 'income' && e.type !== 'investment')
       .sort((a, b) => {
         if (b.date !== a.date) return b.date.localeCompare(a.date);
         return (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0);
@@ -59,7 +65,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     // Always include all known members even if they have no expenses this month
     (memberNames ?? []).forEach(name => { if (!bp[name]) bp[name] = { SGD: 0 }; });
 
-    return { totalExpense: expense, totalIncome: income, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals };
+    return { totalExpense: expense, totalIncome: income, investmentTotal, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals };
   }, [expenses, month, memberNames]);
 
   // Last-month review banner (shown first 5 days of a new month)
@@ -395,6 +401,12 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
               S${fmtCompact(safePerDay)}
             </p>
           </div>
+          {investmentTotal > 0 && (
+            <div className="flex-1 py-3 px-2 text-center">
+              <p className="text-[11px] text-gray-400 mb-0.5">Invested</p>
+              <p className="text-sm font-bold text-violet-600">S${fmtCompact(investmentTotal)}</p>
+            </div>
+          )}
         </div>
       </div>
 

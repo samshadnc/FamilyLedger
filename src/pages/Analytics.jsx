@@ -14,7 +14,8 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
       months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
 
-    const allExp = (allExpenses ?? []).filter(e => e.type !== 'income');
+    const allExp = (allExpenses ?? []).filter(e => e.type !== 'income' && e.type !== 'investment');
+    const allInv = (allExpenses ?? []).filter(e => e.type === 'investment');
     const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
 
     // Monthly totals
@@ -80,7 +81,25 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
 
     const thisMonthTotal = thisMonth.total;
 
-    return { months, monthTotals, thisMonth, lastMonth, momChange, personMonthly, tagMonthly, accountsByPerson, topCats, thisMonthTotal, maxAcc };
+    // Investment analytics
+    const invLifetimeTotal = allInv.reduce((s, e) => s + sgdVal(e), 0);
+    const invPlatformMap = {};
+    allInv.forEach(e => {
+      const p = e.platform || e.payee || 'Other';
+      invPlatformMap[p] = (invPlatformMap[p] ?? 0) + sgdVal(e);
+    });
+    const invByPlatform = Object.entries(invPlatformMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([platform, total]) => ({ platform, total }));
+
+    const invMonthly = months.map(ym => ({
+      ym,
+      label: new Date(ym + '-01').toLocaleString('en-SG', { month: 'short' }),
+      total: allInv.filter(e => e.date.startsWith(ym)).reduce((s, e) => s + sgdVal(e), 0),
+      isCurrent: ym === currentMonth,
+    }));
+
+    return { months, monthTotals, thisMonth, lastMonth, momChange, personMonthly, tagMonthly, accountsByPerson, topCats, thisMonthTotal, maxAcc, invLifetimeTotal, invByPlatform, invMonthly };
   }, [allExpenses, currentMonth, selectedMonth, accountMap]);
 
   return (
@@ -300,6 +319,61 @@ export default function Analytics({ allExpenses, currentMonth, accountMap }) {
             })}
           </div>
           <div className="h-3" />
+        </div>
+      )}
+
+      {/* ── Investments ───────────────────────────────────── */}
+      {data.invLifetimeTotal > 0 && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Investments</p>
+            <div className="text-right">
+              <p className="text-[10px] text-gray-400">Lifetime total</p>
+              <p className="text-base font-bold text-violet-600">S${fmt(data.invLifetimeTotal)}</p>
+            </div>
+          </div>
+
+          {/* Monthly bar chart */}
+          {data.invMonthly.some(m => m.total > 0) && (
+            <div className="mb-4">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-2">Monthly contributions</p>
+              <div className="flex items-end gap-1 h-20">
+                {data.invMonthly.map(({ ym, label, total, isCurrent }) => {
+                  const maxT = Math.max(...data.invMonthly.map(m => m.total), 1);
+                  const h = total > 0 ? Math.max((total / maxT) * 44, 3) : 2;
+                  const amtStr = total > 0 ? (total < 10 ? total.toFixed(2) : total.toFixed(1)) : '';
+                  return (
+                    <div key={ym} className="flex-1 flex flex-col items-center justify-end gap-0.5">
+                      {total > 0 && <p className="text-[7px] font-semibold leading-none mb-0.5" style={{ color: isCurrent ? '#7c3aed' : '#9ca3af' }}>{amtStr}</p>}
+                      <div className="w-full rounded-t-sm" style={{ height: h, background: isCurrent ? '#7c3aed' : '#ddd6fe' }} />
+                      <p className="text-[8px]" style={{ color: isCurrent ? '#7c3aed' : '#9ca3af' }}>{label}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Platform breakdown */}
+          {data.invByPlatform.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide">By platform</p>
+              {data.invByPlatform.map(({ platform, total }) => {
+                const pct = data.invLifetimeTotal > 0 ? (total / data.invLifetimeTotal) * 100 : 0;
+                return (
+                  <div key={platform}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-medium text-gray-700 truncate max-w-[60%]">{platform}</span>
+                      <span className="text-gray-500">S${fmt(total)} <span className="text-gray-400">({pct.toFixed(0)}%)</span></span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-violet-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

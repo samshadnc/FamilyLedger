@@ -63,7 +63,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
     const source = (selectedTag || selectedAccount) ? filtered : expenses;
     if (selectedCategory) return [];
     const map = {};
-    source.filter(e => e.type !== 'income').forEach(e => {
+    source.filter(e => e.type !== 'income' && e.type !== 'investment').forEach(e => {
       map[e.category] = (map[e.category] ?? 0) + sgdVal(e);
     });
     return Object.entries(map)
@@ -72,7 +72,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
   }, [filtered, expenses, selectedTag, selectedAccount]);
 
   const allTotal = useMemo(() =>
-    expenses.filter(e => e.type !== 'income').reduce((s, e) => s + sgdVal(e), 0),
+    expenses.filter(e => e.type !== 'income' && e.type !== 'investment').reduce((s, e) => s + sgdVal(e), 0),
   [expenses]);
 
   const tagMonthlyData = useMemo(() => {

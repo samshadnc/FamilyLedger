@@ -389,17 +389,18 @@ export default function App() {
     else { setTimeout(attempt, 3000); }
   }, [user, isDemo]);
 
-  // Other family members derived from expense history (used for proxy entry)
+  // Other family members: start from accounts keys (always known), enrich with UIDs from history
   const otherMembers = useMemo(() => {
-    if (!allExpenses || !profile) return [];
-    const seen = new Map();
-    for (const exp of allExpenses) {
+    if (!profile || !settings) return [];
+    const accountNames = Object.keys(settings.accounts ?? {}).filter(n => n !== profile.displayName);
+    const uidMap = new Map();
+    for (const exp of allExpenses ?? []) {
       if (exp.addedBy && exp.addedBy !== profile.uid && exp.addedByName) {
-        seen.set(exp.addedBy, exp.addedByName);
+        uidMap.set(exp.addedByName, exp.addedBy);
       }
     }
-    return Array.from(seen.entries()).map(([uid, displayName]) => ({ uid, displayName }));
-  }, [allExpenses, profile]);
+    return accountNames.map(name => ({ uid: uidMap.get(name) ?? null, displayName: name }));
+  }, [allExpenses, profile, settings]);
 
   const handleSave = async (data) => {
     if (isDemo) {
@@ -424,6 +425,8 @@ export default function App() {
       addedBy: profile.uid,
       addedByName: profile.displayName,
       ...data,
+      // if proxy UID is unknown (null), fall back to current user's UID so Firestore doesn't store null
+      ...(data.addedBy === null ? { addedBy: profile.uid } : {}),
       updatedAt: serverTimestamp(),
     };
     if (editTarget) {

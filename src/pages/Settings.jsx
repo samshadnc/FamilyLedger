@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { uploadToDrive } from '../utils/driveBackup';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
-import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, getCategoryById, presetButtonText } from '../constants';
+import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, UNBUDGETED_TAG, getCategoryById, presetButtonText } from '../constants';
 
 function AvatarImg({ name, size = 14 }) {
   const src = AVATARS[name];
@@ -167,6 +167,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
 
   // ── Tags ──────────────────────────────────────────────
   const deleteTag = (tag) => {
+    if (tag === UNBUDGETED_TAG) return;
     onSave({ ...settings, tags: settings.tags.filter(t => t !== tag) });
   };
 
@@ -427,7 +428,14 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         </div>
         <div className="px-5 pb-4">
           <div className="flex flex-wrap gap-2 mb-3">
-            {settings.tags.map(tag => (
+            {settings.tags.map(tag => tag === UNBUDGETED_TAG ? (
+              <div
+                key={tag}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-200"
+              >
+                <span className="text-xs font-semibold text-amber-700">{tag}</span>
+              </div>
+            ) : (
               <div
                 key={tag}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-100"

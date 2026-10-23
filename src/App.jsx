@@ -14,7 +14,7 @@ import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import ExpenseModal from './components/ExpenseModal';
 import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
-import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER } from './constants';
+import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER, UNBUDGETED_TAG } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { initSilentBackup } from './utils/driveBackup';
 import { useTheme } from './hooks/useTheme';
@@ -140,9 +140,11 @@ function normalizeSettings(parsed) {
     ...c,
     budget: c.budget ?? catDefaults[c.id]?.budget ?? 0,
   }));
+  const tags = parsed.tags ?? DEFAULT_TAGS;
   return {
-    tags: DEFAULT_TAGS, accounts: ACCOUNTS, allowEditOthers: false, presets: DEFAULT_PRESETS,
+    accounts: ACCOUNTS, allowEditOthers: false, presets: DEFAULT_PRESETS,
     ...parsed,
+    tags: tags.includes(UNBUDGETED_TAG) ? tags : [...tags, UNBUDGETED_TAG],
     categories: mergedCats,
   };
 }

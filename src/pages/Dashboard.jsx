@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
-import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText } from '../constants';
+import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText, UNBUDGETED_TAG, isUnbudgeted } from '../constants';
 
 export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
@@ -25,6 +25,8 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         income += sgdAmt;
       } else if (exp.type === 'investment') {
         // investments tracked separately — don't count as spending
+      } else if (isUnbudgeted(exp)) {
+        // tagged Unbudgeted — kept out of the home budget (still counted in Trends)
       } else {
         expense += sgdAmt;
         catMap[exp.category] = (catMap[exp.category] ?? 0) + sgdAmt;
@@ -33,7 +35,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       }
       const n = exp.addedByName ?? 'Unknown';
       if (!bp[n]) bp[n] = { SGD: 0 };
-      if (exp.type !== 'income' && exp.type !== 'investment') {
+      if (exp.type !== 'income' && exp.type !== 'investment' && !isUnbudgeted(exp)) {
         bp[n].SGD = (bp[n].SGD ?? 0) + sgdAmt;
       }
     });
@@ -616,7 +618,7 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
                       {exp.payee && exp.note ? <span className="text-[11px] text-gray-400 truncate max-w-[120px]">{exp.note}</span> : null}
                       {exp.tags?.length > 0
                         ? exp.tags.slice(0, 2).map(t => (
-                            <span key={t} className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">{t}</span>
+                            <span key={t} className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${t === UNBUDGETED_TAG ? 'bg-amber-100 text-amber-700' : 'bg-indigo-50 text-indigo-600'}`}>{t}</span>
                           ))
                         : null}
                       <span className="text-[11px] text-gray-400">· {exp.addedByName}</span>

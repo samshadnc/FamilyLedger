@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Camera, Image, Tag, Loader2, RefreshCw } from 'lucide-react';
-import { CATEGORIES, CURRENCIES, ACCOUNTS, DEFAULT_TAGS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, AVATARS } from '../constants';
+import { CATEGORIES, CURRENCIES, ACCOUNTS, DEFAULT_TAGS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, AVATARS, UNBUDGETED_TAG } from '../constants';
 import { useExchangeRate } from '../hooks/useExchangeRate';
 import BankBadge from './BankBadge';
 import { saveReceiptBlob, getReceiptBlob, deleteReceiptBlob } from '../utils/receiptDb';
@@ -538,9 +538,11 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                   type="button"
                   onClick={() => toggleTag(t)}
                   className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                    tags.includes(t)
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                    t === UNBUDGETED_TAG
+                      ? (tags.includes(t) ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-600 border-amber-300 hover:border-amber-400')
+                      : tags.includes(t)
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   {t}

@@ -106,7 +106,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   // Tags list (use passed-in tags or fall back to defaults)
   const tagList = availableTags ?? DEFAULT_TAGS;
 
-  function validate() {
+  function validate({ amount, category, platform, account, date }) {
     const e = {};
     if (!amount || isNaN(Number(amount)) || Math.abs(Number(amount)) <= 0) e.amount = 'Enter a valid amount';
     if (type === 'expense' && !category) e.category = 'Select a category';
@@ -118,22 +118,29 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
 
   const submit = (e) => {
     e.preventDefault();
-    const errs = validate();
+    save();
+  };
+
+  // overrides: field values to use instead of current state (state setters haven't applied yet
+  // when saving straight after applying receipt suggestions)
+  const save = (overrides = {}) => {
+    const v = { amount, currency, category, platform, account, payee, note, date, ...overrides };
+    const errs = validate(v);
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    const parsedAmount = parseFloat(Number(amount).toFixed(2));
+    const parsedAmount = parseFloat(Number(v.amount).toFixed(2));
     const signedAmount = type === 'investment' && borrowing ? -parsedAmount : parsedAmount;
     const payload = {
       type,
       amount:      signedAmount,
-      currency,
-      sgdAmount:   currency === 'SGD' ? signedAmount : (inrToSgd(signedAmount) ?? null),
-      category:    type === 'income' || type === 'investment' ? 'other' : category,
-      ...(type === 'investment' ? { platform: platform.trim() } : {}),
-      account:     account || null,
-      payee:       payee.trim(),
+      currency:    v.currency,
+      sgdAmount:   v.currency === 'SGD' ? signedAmount : (inrToSgd(signedAmount) ?? null),
+      category:    type === 'income' || type === 'investment' ? 'other' : v.category,
+      ...(type === 'investment' ? { platform: v.platform.trim() } : {}),
+      account:     v.account || null,
+      payee:       v.payee.trim(),
       tags,
-      note:        note.trim(),
-      date,
+      note:        v.note.trim(),
+      date:        v.date,
       attachment:  attachment ?? null,
     };
     // Proxy entry: attribute to the selected other member
@@ -142,6 +149,27 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
       payload.addedByName = proxyUser.displayName;
     }
     onSave(payload);
+  };
+
+  // Fill every field the receipt scan found; returns the applied values so they can be saved
+  // straight away (before the state updates land)
+  const applyOcr = () => {
+    const r = ocrResult;
+    const applied = {};
+    if (r.shopName)  applied.payee = r.shopName;
+    if (r.amount)    { applied.amount = String(r.amount); if (r.currency) applied.currency = r.currency; }
+    if (r.date)      applied.date = r.date;
+    if (r.accountId) applied.account = r.accountId;
+    if (r.items)     applied.note = r.items;
+    if (r.category && type === 'expense') applied.category = r.category;
+    if (applied.payee)    setPayee(applied.payee);
+    if (applied.amount)   setAmount(applied.amount);
+    if (applied.currency) setCurrency(applied.currency);
+    if (applied.date)     setDate(applied.date);
+    if (applied.account)  setAccount(applied.account);
+    if (applied.note)     setNote(applied.note);
+    if (applied.category) { setCategory(applied.category); setErrors(e => ({ ...e, category: undefined })); }
+    return applied;
   };
 
   const handleFile = async (e) => {
@@ -504,18 +532,18 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                 <div className="flex gap-2 mt-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (ocrResult.shopName)  setPayee(ocrResult.shopName);
-                      if (ocrResult.amount)    { setAmount(String(ocrResult.amount)); if (ocrResult.currency) setCurrency(ocrResult.currency); }
-                      if (ocrResult.date)      setDate(ocrResult.date);
-                      if (ocrResult.accountId) setAccount(ocrResult.accountId);
-                      if (ocrResult.items)     setNote(ocrResult.items);
-                      if (ocrResult.category && type === 'expense') { setCategory(ocrResult.category); setErrors(e => ({ ...e, category: undefined })); }
-                      setOcrState(null);
-                    }}
-                    className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold"
+                    onClick={() => { applyOcr(); setOcrState(null); }}
+                    className="flex-1 py-1.5 rounded-lg bg-white border border-indigo-200 text-indigo-600 text-xs font-semibold"
                   >
                     Apply all
+                  </button>
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => { const applied = applyOcr(); setOcrState(null); save(applied); }}
+                    className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold disabled:opacity-50"
+                  >
+                    {uploading ? 'Uploading receipt…' : 'Apply & Save'}
                   </button>
                   <button type="button" onClick={() => setOcrState(null)}
                     className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 text-xs">

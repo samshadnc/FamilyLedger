@@ -12,9 +12,9 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
   const {
     totalExpense, totalIncome, investmentTotal, byCategoryByCur,
-    byPerson, recentExpenses, dailyData, categoryTotals, unbudgetedTotal,
+    byPerson, recentExpenses, dailyData, categoryTotals,
   } = useMemo(() => {
-    let expense = 0, income = 0, unbudgeted = 0;
+    let expense = 0, income = 0;
     const catMap = {};
     const bp = {};
     const dailyMap = {};
@@ -26,8 +26,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       } else if (exp.type === 'investment') {
         // investments tracked separately — don't count as spending
       } else if (isUnbudgeted(exp)) {
-        // tagged Unbudgeted — kept out of the budget, shown as a separate note
-        unbudgeted += sgdAmt;
+        // tagged Unbudgeted — kept out of the home budget (still counted in Trends)
       } else {
         expense += sgdAmt;
         catMap[exp.category] = (catMap[exp.category] ?? 0) + sgdAmt;
@@ -68,7 +67,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     // Always include all known members even if they have no expenses this month
     (memberNames ?? []).forEach(name => { if (!bp[name]) bp[name] = { SGD: 0 }; });
 
-    return { totalExpense: expense, totalIncome: income, investmentTotal, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals, unbudgetedTotal: unbudgeted };
+    return { totalExpense: expense, totalIncome: income, investmentTotal, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals };
   }, [expenses, month, memberNames]);
 
   // Last-month review banner (shown first 5 days of a new month)
@@ -387,9 +386,6 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
                   <div className="w-2 h-2 rounded-full bg-green-500" />
                   <p className="text-xs font-semibold text-gray-500">{pct.toFixed(0)}% of budget</p>
                 </div>
-                {unbudgetedTotal !== 0 && (
-                  <p className="text-[11px] font-semibold text-amber-600 mt-1">+ S${fmt(unbudgetedTotal)} unbudgeted</p>
-                )}
               </div>
             </div>
           </div>

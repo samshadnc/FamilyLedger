@@ -39,6 +39,11 @@ export const ACCOUNTS = {
 // Only this member can change budgets and the edit-others switch (matched by displayName)
 export const SETTINGS_OWNER = 'Samshad';
 
+// Expenses with this tag are left out of the home screen budget but still count in Trends/Analytics.
+// The tag can't be deleted and is shown in amber.
+export const UNBUDGETED_TAG = 'Unbudgeted';
+export const isUnbudgeted = (e) => e.tags?.includes(UNBUDGETED_TAG) ?? false;
+
 export const DEFAULT_TAGS = ['Samshad', 'Sahla', 'AdvancePurchase', 'Unbudgeted', 'India'];
 
 export const DEFAULT_PRESETS = {

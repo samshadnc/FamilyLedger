@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
-import { getCategoryById, CURRENCIES, getBankBrand } from '../constants';
+import { getCategoryById, CURRENCIES, getBankBrand, UNBUDGETED_TAG } from '../constants';
 import BankBadge from '../components/BankBadge';
 
 export default function Expenses({ expenses, allExpenses, onEdit, onDelete, profile, allowEditOthers, selectedTag, onClearTag, onTagSelect, selectedAccount, onClearAccount, onAccountSelect, accountMap, selectedPayee, onClearPayee, onPayeeSelect, selectedCategory, onClearCategory, onCategorySelect }) {
@@ -384,9 +384,11 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                               type="button"
                               onClick={e => { e.stopPropagation(); onTagSelect?.(t); }}
                               className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
-                                selectedTag === t
-                                  ? 'bg-indigo-600 text-white'
-                                  : 'bg-indigo-50 text-indigo-600 active:bg-indigo-200'
+                                t === UNBUDGETED_TAG
+                                  ? (selectedTag === t ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-700 active:bg-amber-200')
+                                  : selectedTag === t
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-indigo-50 text-indigo-600 active:bg-indigo-200'
                               }`}
                             >{t}</button>
                           ))

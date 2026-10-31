@@ -42,6 +42,12 @@
   body { @apply font-sans antialiased; overflow-x: hidden; }
 }
 
+/* ── Toast animation ──────────────────────────────────── */
+@keyframes fl-slide-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* ── Apply tokens to common patterns ─────────────────── */
 /* App background */
 .dark .bg-\[\#ECEDF0\]  { background: var(--app-bg) !important; }

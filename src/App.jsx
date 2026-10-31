@@ -13,7 +13,7 @@ import CategoryDetail from './pages/CategoryDetail';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import ExpenseModal from './components/ExpenseModal';
-import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2, Bell } from 'lucide-react';
 import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER, UNBUDGETED_TAG } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
@@ -190,6 +190,12 @@ export default function App() {
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
 
+  const profileRef            = useRef(null);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+  const allExpInitializedRef  = useRef(false);
+  const [toast,               setToast]          = useState(null); // { message, key }
+  const toastTimerRef         = useRef(null);
+
   const handleTagSelect = (tag) => {
     setSelectedTag(tag);
     setSelectedAccount(null);
@@ -364,7 +370,7 @@ export default function App() {
     return unsub;
   }, [user, month, isDemo]);
 
-  // 6-month listener for Trends (production only)
+  // 5-year listener for Trends + in-app new-transaction notifications (production only)
   useEffect(() => {
     if (isDemo || !user) return;
     const d = new Date();
@@ -375,10 +381,24 @@ export default function App() {
       where('date', '>=', twoYearsAgo),
       orderBy('date', 'desc'),
     );
+    allExpInitializedRef.current = false;
     const unsub = onSnapshot(q, (snap) => {
       setAllExpenses(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+      if (!allExpInitializedRef.current) { allExpInitializedRef.current = true; return; }
+      for (const change of snap.docChanges()) {
+        if (change.type !== 'added') continue;
+        const data = change.doc.data();
+        if (!data.addedBy || data.addedBy === profileRef.current?.uid) continue;
+        const name   = data.addedByName ?? 'Your partner';
+        const amount = data.sgdAmount != null ? data.sgdAmount : Math.abs(data.amount ?? 0);
+        const label  = [data.payee, `SGD ${Number(amount).toFixed(2)}`].filter(Boolean).join(' · ');
+        setToast({ message: `${name} added: ${label}`, key: change.doc.id });
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setToast(null), 4500);
+        break;
+      }
     }, (err) => console.error('Trends listener error:', err));
-    return unsub;
+    return () => { unsub(); clearTimeout(toastTimerRef.current); };
   }, [user, isDemo]);
 
   // Last backup date — read from localStorage, updated when the user manually backs up
@@ -614,6 +634,24 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* In-app notification toast */}
+      {toast && (
+        <div
+          key={toast.key}
+          className="fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-[60]"
+          style={{ animation: 'fl-slide-in 0.25s ease-out' }}
+        >
+          <div className="bg-indigo-700 text-white rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 text-sm">
+            <Bell size={15} className="shrink-0 opacity-75" />
+            <span className="flex-1 leading-snug">{toast.message}</span>
+            <button
+              onClick={() => { setToast(null); clearTimeout(toastTimerRef.current); }}
+              className="opacity-60 hover:opacity-100 text-xl leading-none -mr-1"
+            >×</button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom nav — Axio style 4-tab */}
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex items-center">

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { uploadToDrive } from '../utils/driveBackup';
+import { registerBackupReminder, unregisterBackupReminder, isBackupReminderEnabled } from '../utils/backupReminder';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, UNBUDGETED_TAG, getCategoryById, presetButtonText } from '../constants';
 
@@ -67,6 +68,9 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | 'done' | 'error'
   const [exportMonth, setExportMonth] = useState('all');
   const [driveStatus, setDriveStatus] = useState(null); // null | 'backing-up' | 'done' | 'error'
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState(null); // null | 'unsupported'
+  useEffect(() => { isBackupReminderEnabled().then(setReminderEnabled); }, []);
 
   useEffect(() => {
     history.pushState({ flSettings: true }, '');
@@ -705,7 +709,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
                 : 'Backs up all expenses + settings to your Drive'}
             </p>
           </div>
-          <div className="px-5 pb-4">
+          <div className="px-5 pb-4 space-y-3">
             <button
               onClick={handleDriveBackup}
               disabled={driveStatus === 'backing-up'}
@@ -721,6 +725,34 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
               )}
               {driveStatus === 'done' ? 'Backed up!' : driveStatus === 'error' ? 'Backup failed' : 'Back up to Drive'}
             </button>
+
+            {/* Weekly reminder toggle */}
+            {reminderStatus !== 'unsupported' && (
+              <div className="flex items-center justify-between py-1">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Weekly backup reminder</p>
+                  <p className="text-[11px] text-gray-400">Notification every 7 days</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (reminderEnabled) {
+                      await unregisterBackupReminder();
+                      setReminderEnabled(false);
+                    } else {
+                      const result = await registerBackupReminder();
+                      if (result.reason === 'no-periodic-sync' || result.reason === 'no-sw') {
+                        setReminderStatus('unsupported');
+                      } else {
+                        setReminderEnabled(result.ok);
+                      }
+                    }
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${reminderEnabled ? 'bg-green-500' : 'bg-gray-200'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${reminderEnabled ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

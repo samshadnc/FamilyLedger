@@ -237,8 +237,8 @@ export default function App() {
   const handleToastClick = (ids, date) => {
     setToast(null);
     clearTimeout(toastTimerRef.current);
-    setShowSettings(false);
-    setSelectedCategory(null); setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null);
+    showSettingsRef.current = false; setShowSettings(false);
+    selCatRef.current = null; setSelectedCategory(null); setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null);
     if (date) setMonth(date.slice(0, 7));
     setTab('expenses');
     setHighlightIds(new Set(ids));
@@ -249,6 +249,27 @@ export default function App() {
   const lastSeenRef           = useRef(parseInt(localStorage.getItem('fl_last_seen') || '0', 10));
   useEffect(() => {
     try { localStorage.setItem('fl_last_seen', Date.now().toString()); } catch {}
+  }, []);
+
+  // Android back button — refs track open sub-sections synchronously (state updates are async)
+  const showModalRef    = useRef(false);
+  const showSettingsRef = useRef(false);
+  const selCatRef       = useRef(null);
+  const poppingRef      = useRef(false); // true when WE called history.back() from an in-app close
+
+  const pushSubNav  = () => history.pushState({ fl: 'sub' }, '');
+  const closeSubNav = () => { poppingRef.current = true; history.back(); };
+
+  useEffect(() => {
+    history.replaceState({ fl: 'main' }, '');
+    const onPop = () => {
+      if (poppingRef.current) { poppingRef.current = false; return; }
+      if (showModalRef.current)    { showModalRef.current = false;    setShowModal(false); setEditTarget(null); return; }
+      if (showSettingsRef.current) { showSettingsRef.current = false; setShowSettings(false); return; }
+      if (selCatRef.current)       { selCatRef.current = null;        setSelectedCategory(null); return; }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   // Settings: tags, accounts, categories — shared via Firestore (household/settings),
@@ -480,7 +501,7 @@ export default function App() {
         setExpenses(prev => [newExp, ...prev]);
         setAllExpenses(prev => [newExp, ...prev]);
       }
-      setShowModal(false); setEditTarget(null); return;
+      showModalRef.current = false; setShowModal(false); setEditTarget(null); closeSubNav(); return;
     }
     if (!profile) return;
     // data.addedBy/addedByName may be set by the modal (proxy entry) — honour them
@@ -497,7 +518,7 @@ export default function App() {
     } else {
       await addDoc(collection(db, 'expenses'), { ...payload, createdAt: serverTimestamp() });
     }
-    setShowModal(false); setEditTarget(null);
+    showModalRef.current = false; setShowModal(false); setEditTarget(null); closeSubNav();
   };
 
   const handleAutoSave = async (data) => {
@@ -506,8 +527,8 @@ export default function App() {
     await updateDoc(doc(db, 'expenses', editTarget.id), payload);
   };
 
-  const openAdd  = () => { setEditTarget(null); setShowModal(true); };
-  const handleEdit = (exp) => { setEditTarget(exp); setShowModal(true); };
+  const openAdd  = () => { setEditTarget(null); showModalRef.current = true; setShowModal(true); pushSubNav(); };
+  const handleEdit = (exp) => { setEditTarget(exp); showModalRef.current = true; setShowModal(true); pushSubNav(); };
 
   const handlePresetSave = (preset) => {
     const today = new Date().toISOString().split('T')[0];
@@ -607,7 +628,7 @@ export default function App() {
           <Settings
             settings={settings}
             onSave={handleSaveSettings}
-            onBack={() => setShowSettings(false)}
+            onBack={() => { showSettingsRef.current = false; setShowSettings(false); closeSubNav(); }}
             profile={profile}
             dark={dark}
             onToggleDark={toggleDark}
@@ -624,8 +645,8 @@ export default function App() {
             currentMonth={month}
             isDemo={isDemo}
             allExpenses={isDemo ? DEMO_ALL_EXPENSES : allExpenses}
-            onBack={() => setSelectedCategory(null)}
-            onEdit={(exp) => { setEditTarget(exp); setShowModal(true); }}
+            onBack={() => { selCatRef.current = null; setSelectedCategory(null); closeSubNav(); }}
+            onEdit={(exp) => { setEditTarget(exp); showModalRef.current = true; setShowModal(true); pushSubNav(); }}
           />
         ) : tab === 'dashboard' ? (
           <Dashboard
@@ -639,8 +660,8 @@ export default function App() {
             budget={settings.monthlyBudget ?? 5000}
             categorySettings={settings.categories}
             memberNames={Object.keys(settings.accounts ?? {})}
-            onCategorySelect={setSelectedCategory}
-            onOpenSettings={() => setShowSettings(true)}
+            onCategorySelect={(catId) => { selCatRef.current = catId; setSelectedCategory(catId); pushSubNav(); }}
+            onOpenSettings={() => { showSettingsRef.current = true; setShowSettings(true); pushSubNav(); }}
             onTagSelect={handleTagSelect}
             onPayeeSelect={handlePayeeSelect}
             allowEditOthers={settings.allowEditOthers}
@@ -740,7 +761,7 @@ export default function App() {
           onAutoSave={editTarget ? handleAutoSave : undefined}
           allowAddForOthers={!editTarget && settings.allowEditOthers}
           otherMembers={otherMembers}
-          onClose={() => { setShowModal(false); setEditTarget(null); }}
+          onClose={() => { showModalRef.current = false; setShowModal(false); setEditTarget(null); closeSubNav(); }}
           onDelete={handleDelete}
           profile={profile}
           availableTags={settings.tags}

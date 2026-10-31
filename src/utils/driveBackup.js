@@ -42,18 +42,26 @@ export async function uploadToDrive(token, settings) {
 }
 
 export function initSilentBackup(settings, onSuccess) {
-  if (!window.google?.accounts?.oauth2) return;
+  if (!window.google?.accounts?.oauth2) { console.warn('[Backup] Google GIS not loaded'); return; }
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  if (!clientId) return;
+  if (!clientId) { console.warn('[Backup] Missing VITE_GOOGLE_CLIENT_ID'); return; }
+  console.log('[Backup] Requesting silent token…');
   const tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: async (response) => {
-      if (response.error) return;
+      if (response.error) {
+        console.warn('[Backup] Token error:', response.error, response.error_description ?? '');
+        return;
+      }
+      console.log('[Backup] Token granted, uploading…');
       try {
         const ts = await uploadToDrive(response.access_token, settings);
+        console.log('[Backup] ✓ Done at', ts);
         onSuccess?.(ts);
-      } catch {}
+      } catch (err) {
+        console.error('[Backup] Upload failed:', err);
+      }
     },
   });
   tokenClient.requestAccessToken({ prompt: 'none' });

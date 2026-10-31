@@ -392,7 +392,10 @@ export default function App() {
     if (!user || user.email !== 'samshadnc@gmail.com' || isDemo) return;
     try {
       const last = localStorage.getItem('fl_last_drive_backup');
-      if (last && (Date.now() - new Date(last).getTime()) < 24 * 60 * 60 * 1000) return;
+      if (last && (Date.now() - new Date(last).getTime()) < 24 * 60 * 60 * 1000) {
+        console.log('[Backup] Skipped — last backup was', new Date(last).toLocaleString());
+        return;
+      }
     } catch {}
     const attempt = () => initSilentBackup(backupSettingsRef.current, (ts) => setLastBackupDate(ts));
     if (window.google?.accounts?.oauth2) { attempt(); }

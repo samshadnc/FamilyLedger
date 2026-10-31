@@ -1,10 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { getCategoryById, CURRENCIES, getBankBrand, UNBUDGETED_TAG } from '../constants';
 import BankBadge from '../components/BankBadge';
 
 export default function Expenses({ expenses, allExpenses, onEdit, onDelete, profile, allowEditOthers, selectedTag, onClearTag, onTagSelect, selectedAccount, onClearAccount, onAccountSelect, accountMap, selectedPayee, onClearPayee, onPayeeSelect, selectedCategory, onClearCategory, onCategorySelect, highlightIds }) {
   const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+
+  // Scroll highlighted expense into view — fires on highlightIds change AND when expenses
+  // update (new month data arrives after month switch from notification tap)
+  useEffect(() => {
+    if (!highlightIds?.size) return;
+    const id = [...highlightIds][0];
+    const el = document.querySelector(`[data-expense-id="${id}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [highlightIds, expenses]);
 
   const filtered = selectedTag
     ? expenses.filter(e => e.tags?.includes(selectedTag))
@@ -334,6 +343,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
               return (
                 <button
                   key={exp.id}
+                  data-expense-id={exp.id}
                   onClick={() => onEdit(exp)}
                   className={`w-full px-4 py-3.5 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors${highlightIds?.has(exp.id) ? ' fl-highlight-row' : ''}`}
                 >

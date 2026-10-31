@@ -16,7 +16,6 @@ import ExpenseModal from './components/ExpenseModal';
 import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
 import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER, UNBUDGETED_TAG } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
-import { initSilentBackup } from './utils/driveBackup';
 import { useTheme } from './hooks/useTheme';
 
 // Real October 2026 data imported from Axio (Samshad) + fake Sahla entries
@@ -382,25 +381,10 @@ export default function App() {
     return unsub;
   }, [user, isDemo]);
 
-  // Silent auto-backup: once per day for the master user, no popup
+  // Last backup date — read from localStorage, updated when the user manually backs up
   const [lastBackupDate, setLastBackupDate] = useState(() => {
     try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
   });
-  const backupSettingsRef = useRef(settings);
-  useEffect(() => { backupSettingsRef.current = settings; }, [settings]);
-  useEffect(() => {
-    if (!user || user.email !== 'samshadnc@gmail.com' || isDemo) return;
-    try {
-      const last = localStorage.getItem('fl_last_drive_backup');
-      if (last && (Date.now() - new Date(last).getTime()) < 24 * 60 * 60 * 1000) {
-        console.log('[Backup] Skipped — last backup was', new Date(last).toLocaleString());
-        return;
-      }
-    } catch {}
-    const attempt = () => initSilentBackup(backupSettingsRef.current, (ts) => setLastBackupDate(ts));
-    if (window.google?.accounts?.oauth2) { attempt(); }
-    else { setTimeout(attempt, 3000); }
-  }, [user, isDemo]);
 
   // Other family members: start from accounts keys (always known), enrich with UIDs from history
   const otherMembers = useMemo(() => {

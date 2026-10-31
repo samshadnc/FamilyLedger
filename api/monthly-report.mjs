@@ -2,7 +2,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { Resend } from 'resend';
 
-const REPORT_EMAILS = ['samshadnc@gmail.com', 'msahla99@gmail.com'];
+const REPORT_EMAILS = ['samshadnc@gmail.com'];
 
 const CAT_EMOJI = {
   groceries: '🛒', dining: '🍜', transport: '🚌', utilities: '⚡',
@@ -238,6 +238,13 @@ export default async function handler(req, res) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
 
+    // ── Investments & borrowings ──────────────────────────────────────────
+    const investExps = lastMonthExps.filter(e => e.type === 'invest');
+    const investTotal = investExps.reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
+
+    const borrowExps = lastMonthExps.filter(e => e.amount < 0);
+    const borrowTotal = borrowExps.reduce((s, e) => s + Math.abs(e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
+
     // ── Build 4-month chart data ─────────────────────────────────────────
     // Order: oldest → newest (left → right)
     const allMonths = [
@@ -267,6 +274,24 @@ export default async function handler(req, res) {
     // ── Build HTML email ─────────────────────────────────────────────────
     const budgetPct = budget > 0 ? Math.round((total / budget) * 100) : null;
     const budgetColor = !budgetPct ? '#6b7280' : budgetPct <= 90 ? '#16a34a' : budgetPct <= 100 ? '#d97706' : '#dc2626';
+
+    const investRows = investExps.map(e => {
+      const sgd = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+      const desc = [e.payee, e.note].filter(Boolean).join(' · ') || 'Investment';
+      return `<tr style="border-bottom:1px solid #f3f4f6;">
+        <td style="padding:9px 0;font-size:13px;color:#374151;">${e.date}&nbsp;&middot;&nbsp;${desc}</td>
+        <td style="padding:9px 0;text-align:right;font-size:14px;font-weight:700;color:#059669;">S$${sgd.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    const borrowRows = borrowExps.map(e => {
+      const sgd = Math.abs(e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0));
+      const desc = [e.payee, e.note].filter(Boolean).join(' · ') || 'Borrowing';
+      return `<tr style="border-bottom:1px solid #f3f4f6;">
+        <td style="padding:9px 0;font-size:13px;color:#374151;">${e.date}&nbsp;&middot;&nbsp;${desc}</td>
+        <td style="padding:9px 0;text-align:right;font-size:14px;font-weight:700;color:#6b7280;">S$${sgd.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
 
     const thisMonthRows = topCategories.map(([cat, amt]) => {
       const prev = prevByCategory[cat] ?? 0;
@@ -346,6 +371,34 @@ export default async function handler(req, res) {
         <p style="margin:0 0 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;">4-Month Trend</p>
         ${chartSVG}
       </div>
+
+      <!-- Investments & Savings -->
+      ${investRows ? `
+      <div style="height:1px;background:#f3f4f6;margin:0 28px;"></div>
+      <div style="padding:22px 28px 18px;">
+        <p style="margin:0 0 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;">💹 Investments &amp; Savings</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+          ${investRows}
+          <tr>
+            <td style="padding:10px 0 4px;font-size:12px;font-weight:600;color:#6b7280;">Total invested this month</td>
+            <td style="padding:10px 0 4px;text-align:right;font-size:15px;font-weight:800;color:#059669;">S$${investTotal.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>` : ''}
+
+      <!-- Borrowings -->
+      ${borrowRows ? `
+      <div style="height:1px;background:#f3f4f6;margin:0 28px;"></div>
+      <div style="padding:22px 28px 18px;">
+        <p style="margin:0 0 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;">🔄 Borrowings</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:14px;">
+          ${borrowRows}
+          <tr>
+            <td style="padding:10px 0 4px;font-size:12px;font-weight:600;color:#6b7280;">Total this month</td>
+            <td style="padding:10px 0 4px;text-align:right;font-size:15px;font-weight:800;color:#374151;">S$${borrowTotal.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>` : ''}
 
       <!-- Divider -->
       <div style="height:1px;background:#f3f4f6;margin:0 28px;"></div>

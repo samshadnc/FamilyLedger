@@ -229,8 +229,22 @@ export default function App() {
   const profileRef            = useRef(null);
   useEffect(() => { profileRef.current = profile; }, [profile]);
   const allExpInitializedRef  = useRef(false);
-  const [toast,               setToast]          = useState(null); // { message, key }
+  const [toast,               setToast]          = useState(null); // { message, key, ids, date }
   const toastTimerRef         = useRef(null);
+  const [highlightIds,        setHighlightIds]   = useState(new Set());
+  const highlightTimerRef     = useRef(null);
+
+  const handleToastClick = (ids, date) => {
+    setToast(null);
+    clearTimeout(toastTimerRef.current);
+    setShowSettings(false);
+    setSelectedCategory(null); setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null);
+    if (date) setMonth(date.slice(0, 7));
+    setTab('expenses');
+    setHighlightIds(new Set(ids));
+    clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightIds(new Set()), 2800);
+  };
   // Capture last-seen timestamp BEFORE updating it, so we can detect missed additions on next open
   const lastSeenRef           = useRef(parseInt(localStorage.getItem('fl_last_seen') || '0', 10));
   useEffect(() => {
@@ -405,7 +419,12 @@ export default function App() {
               ? `${name} added: ${[first.payee, `SGD ${Number(first.sgdAmount ?? Math.abs(first.amount ?? 0)).toFixed(2)}`].filter(Boolean).join(' · ')}`
               : `${name} added ${missed.length} transactions while you were away`;
             playChime();
-            setToast({ message: msg, key: 'missed-' + Date.now() });
+            setToast({
+              message: msg,
+              key: 'missed-' + Date.now(),
+              ids: missed.map(d => d.id),
+              date: missed.length === 1 ? missed[0].data().date : null,
+            });
             toastTimerRef.current = setTimeout(() => setToast(null), 5500);
           }
         }
@@ -419,7 +438,7 @@ export default function App() {
         const amount = data.sgdAmount != null ? data.sgdAmount : Math.abs(data.amount ?? 0);
         const label  = [data.payee, `SGD ${Number(amount).toFixed(2)}`].filter(Boolean).join(' · ');
         playChime();
-        setToast({ message: `${name} added: ${label}`, key: change.doc.id });
+        setToast({ message: `${name} added: ${label}`, key: change.doc.id, ids: [change.doc.id], date: data.date });
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         toastTimerRef.current = setTimeout(() => setToast(null), 4500);
         break;
@@ -658,6 +677,7 @@ export default function App() {
             selectedCategory={selectedCategory}
             onClearCategory={() => setSelectedCategory(null)}
             onCategorySelect={handleCategorySelect}
+            highlightIds={highlightIds}
           />
         )}
       </main>
@@ -669,12 +689,20 @@ export default function App() {
           className="fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-[60]"
           style={{ animation: 'fl-slide-in 0.25s ease-out' }}
         >
-          <div className="bg-indigo-700 text-white rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 text-sm">
-            <Bell size={15} className="shrink-0 opacity-75" />
-            <span className="flex-1 leading-snug">{toast.message}</span>
+          <div className="bg-indigo-700 text-white rounded-2xl shadow-2xl flex items-stretch overflow-hidden text-sm">
+            <button
+              onClick={() => handleToastClick(toast.ids, toast.date)}
+              className="flex-1 flex items-center gap-3 px-4 py-3 text-left active:bg-indigo-800"
+            >
+              <Bell size={15} className="shrink-0 opacity-75" />
+              <div className="flex-1 min-w-0">
+                <span className="leading-snug block">{toast.message}</span>
+                <span className="text-[11px] opacity-60">Tap to view</span>
+              </div>
+            </button>
             <button
               onClick={() => { setToast(null); clearTimeout(toastTimerRef.current); }}
-              className="opacity-60 hover:opacity-100 text-xl leading-none -mr-1"
+              className="px-3 opacity-60 hover:opacity-100 text-xl border-l border-indigo-600"
             >×</button>
           </div>
         </div>

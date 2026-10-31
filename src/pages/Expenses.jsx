@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { getCategoryById, CURRENCIES, getBankBrand, UNBUDGETED_TAG } from '../constants';
 import BankBadge from '../components/BankBadge';
 
-export default function Expenses({ expenses, allExpenses, onEdit, onDelete, profile, allowEditOthers, selectedTag, onClearTag, onTagSelect, selectedAccount, onClearAccount, onAccountSelect, accountMap, selectedPayee, onClearPayee, onPayeeSelect, selectedCategory, onClearCategory, onCategorySelect }) {
+export default function Expenses({ expenses, allExpenses, onEdit, onDelete, profile, allowEditOthers, selectedTag, onClearTag, onTagSelect, selectedAccount, onClearAccount, onAccountSelect, accountMap, selectedPayee, onClearPayee, onPayeeSelect, selectedCategory, onClearCategory, onCategorySelect, highlightIds }) {
   const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
 
   const filtered = selectedTag
@@ -335,7 +335,7 @@ export default function Expenses({ expenses, allExpenses, onEdit, onDelete, prof
                 <button
                   key={exp.id}
                   onClick={() => onEdit(exp)}
-                  className="w-full px-4 py-3.5 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors"
+                  className={`w-full px-4 py-3.5 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors${highlightIds?.has(exp.id) ? ' fl-highlight-row' : ''}`}
                 >
                   {/* Icon — tappable to filter by category */}
                   <button

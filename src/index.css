@@ -48,6 +48,14 @@
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+@keyframes fl-highlight {
+  0%   { background-color: transparent; }
+  15%  { background-color: #fef3c7; }
+  75%  { background-color: #fef3c7; }
+  100% { background-color: transparent; }
+}
+.fl-highlight-row { animation: fl-highlight 2.8s ease-in-out; }
+
 /* ── Apply tokens to common patterns ─────────────────── */
 /* App background */
 .dark .bg-\[\#ECEDF0\]  { background: var(--app-bg) !important; }

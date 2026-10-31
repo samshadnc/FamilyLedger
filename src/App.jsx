@@ -231,6 +231,11 @@ export default function App() {
   const allExpInitializedRef  = useRef(false);
   const [toast,               setToast]          = useState(null); // { message, key }
   const toastTimerRef         = useRef(null);
+  // Capture last-seen timestamp BEFORE updating it, so we can detect missed additions on next open
+  const lastSeenRef           = useRef(parseInt(localStorage.getItem('fl_last_seen') || '0', 10));
+  useEffect(() => {
+    try { localStorage.setItem('fl_last_seen', Date.now().toString()); } catch {}
+  }, []);
 
   // Settings: tags, accounts, categories — shared via Firestore (household/settings),
   // cached in localStorage so the app still starts offline
@@ -384,7 +389,28 @@ export default function App() {
     allExpInitializedRef.current = false;
     const unsub = onSnapshot(q, (snap) => {
       setAllExpenses(snap.docs.map(d => ({ ...d.data(), id: d.id })));
-      if (!allExpInitializedRef.current) { allExpInitializedRef.current = true; return; }
+      if (!allExpInitializedRef.current) {
+        allExpInitializedRef.current = true;
+        const lastSeen = lastSeenRef.current;
+        if (lastSeen > 0) {
+          const missed = snap.docs.filter(d => {
+            const data = d.data();
+            if (!data.addedBy || data.addedBy === profileRef.current?.uid) return false;
+            return (data.createdAt?.seconds ?? 0) * 1000 > lastSeen;
+          });
+          if (missed.length > 0) {
+            const first = missed[0].data();
+            const name = first.addedByName ?? 'Your partner';
+            const msg = missed.length === 1
+              ? `${name} added: ${[first.payee, `SGD ${Number(first.sgdAmount ?? Math.abs(first.amount ?? 0)).toFixed(2)}`].filter(Boolean).join(' · ')}`
+              : `${name} added ${missed.length} transactions while you were away`;
+            playChime();
+            setToast({ message: msg, key: 'missed-' + Date.now() });
+            toastTimerRef.current = setTimeout(() => setToast(null), 5500);
+          }
+        }
+        return;
+      }
       for (const change of snap.docChanges()) {
         if (change.type !== 'added') continue;
         const data = change.doc.data();

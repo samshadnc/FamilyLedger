@@ -521,6 +521,11 @@ export default function App() {
       await addDoc(collection(db, 'expenses'), { ...payload, createdAt: serverTimestamp() });
     }
     showModalRef.current = false; setShowModal(false); setEditTarget(null); closeSubNav();
+    // If the saved entry is in a different month than the current view, switch to it
+    if (data.date) {
+      const entryMonth = data.date.slice(0, 7);
+      if (entryMonth !== month) setMonth(entryMonth);
+    }
   };
 
   const handleAutoSave = async (data) => {

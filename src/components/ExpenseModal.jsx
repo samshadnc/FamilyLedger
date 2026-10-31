@@ -15,6 +15,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [proxyUser, setProxyUser] = useState(null);
 
   const [type,       setType]       = useState(expense?.type     ?? 'expense');
+  const [showTypePicker, setShowTypePicker] = useState(false);
   const [borrowing,  setBorrowing]  = useState(expense?.type === 'investment' && (expense?.amount ?? 0) < 0);
   const [platform,   setPlatform]   = useState(expense?.platform  ?? '');
   const [amount,     setAmount]     = useState(expense?.amount !== undefined ? Math.abs(expense.amount) : '');
@@ -41,18 +42,6 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const cameraRef = useRef();
   const galleryRef = useRef();
   const { inrToSgd, rateLabel, offline } = useExchangeRate();
-
-  // Intercept Android/browser back button — close modal instead of navigating away
-  useEffect(() => {
-    history.pushState({ flModal: true }, '');
-    const handlePop = () => onClose();
-    window.addEventListener('popstate', handlePop);
-    return () => {
-      window.removeEventListener('popstate', handlePop);
-      // If modal was closed via button (not back), clean up the pushed history entry
-      if (history.state?.flModal) history.back();
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load blob from IndexedDB when viewing a pending attachment from a previous session
   useEffect(() => {
@@ -228,6 +217,9 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b border-gray-100">
           <div className="flex items-center gap-2">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 -ml-1 mr-1">
+              <X size={20} />
+            </button>
             <h2 className="font-bold text-gray-900 text-base">
               {editing ? (readOnly ? 'View Entry' : 'Edit Entry') : 'Add Entry'}
             </h2>
@@ -237,9 +229,55 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
             {saveStatus === 'saving' && <span className="text-[11px] text-gray-400">Saving…</span>}
             {saveStatus === 'saved'  && <span className="text-[11px] text-green-600 font-semibold">✓ Saved</span>}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X size={20} />
-          </button>
+
+          {/* Type chip — right side of header */}
+          {!readOnly ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => !readOnly && setShowTypePicker(p => !p)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  type === 'income'     ? 'bg-green-50  text-green-700  border-green-200'
+                  : type === 'investment' && borrowing ? 'bg-orange-50 text-orange-700 border-orange-200'
+                  : type === 'investment' ? 'bg-violet-50 text-violet-700 border-violet-200'
+                  : 'bg-red-50 text-red-600 border-red-200'
+                }`}
+              >
+                <span>{type === 'income' ? '↓ Income' : type === 'investment' && borrowing ? '💸 Borrowed' : type === 'investment' ? '📈 Invest' : '↑ Expense'}</span>
+                <ChevronDown size={12} />
+              </button>
+
+              {showTypePicker && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowTypePicker(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden min-w-[140px]">
+                    {[
+                      { value: 'expense',    label: '↑ Expense',   color: 'text-red-600' },
+                      { value: 'income',     label: '↓ Income',    color: 'text-green-700' },
+                      { value: 'investment', label: '📈 Invest',   color: 'text-violet-700' },
+                    ].map(t => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => { setType(t.value); if (t.value !== 'investment') setBorrowing(false); setShowTypePicker(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm font-semibold hover:bg-gray-50 ${t.color} ${type === t.value ? 'bg-gray-50' : ''}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+              type === 'income'     ? 'bg-green-50  text-green-700  border-green-200'
+              : type === 'investment' ? 'bg-violet-50 text-violet-700 border-violet-200'
+              : 'bg-red-50 text-red-600 border-red-200'
+            }`}>
+              {type === 'income' ? '↓ Income' : type === 'investment' ? '📈 Invest' : '↑ Expense'}
+            </div>
+          )}
         </div>
 
         <form onSubmit={submit} className="px-5 py-4 space-y-4">
@@ -266,27 +304,6 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
               </div>
             </div>
           )}
-
-          {/* Type toggle */}
-          <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-            {[
-              { value: 'expense',    label: '↑ Expense',    active: 'bg-red-500 text-white' },
-              { value: 'income',     label: '↓ Income',     active: 'bg-green-600 text-white' },
-              { value: 'investment', label: '📈 Invest',    active: 'bg-violet-600 text-white' },
-            ].map(t => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => { if (!readOnly) { setType(t.value); if (t.value !== 'investment') setBorrowing(false); } }}
-                disabled={readOnly}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  type === t.value ? t.active : 'text-gray-500'
-                } ${readOnly ? 'cursor-default' : ''}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
 
           {/* Invested / Borrowed sub-toggle — only when investment type selected */}
           {type === 'investment' && (

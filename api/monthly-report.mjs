@@ -117,7 +117,8 @@ function buildSVGChart(monthLabels, catData) {
   const chartW = svgW - padL - padR;
   const chartH = svgH - padT - padB;
 
-  const monthColors = ['#c7d2fe', '#a5b4fc', '#818cf8', '#6366f1'];
+  const monthColors  = ['#c7d2fe', '#a5b4fc', '#818cf8', '#6366f1'];
+  const investColors = ['#bbf7d0', '#86efac', '#4ade80', '#16a34a'];
   const nCats = catData.length;
   const nMonths = monthLabels.length;
 
@@ -150,9 +151,10 @@ function buildSVGChart(monthLabels, catData) {
       const x = padL + ci * groupW + groupOffset + mi * (barW + barGap);
       const h = val > 0 ? (val / gridMax) * chartH : 0;
       const y = padT + chartH - h;
+      const colors = cat.isInvest ? investColors : monthColors;
 
       if (h > 0) {
-        parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" rx="3" fill="${monthColors[mi]}"/>`);
+        parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" rx="3" fill="${colors[mi]}"/>`);
       }
 
       // Rotated value label above bar
@@ -160,7 +162,8 @@ function buildSVGChart(monthLabels, catData) {
         const lx = (x + barW / 2).toFixed(1);
         const ly = (y - 3).toFixed(1);
         const isCurrent = mi === nMonths - 1;
-        parts.push(`<text transform="translate(${lx},${ly}) rotate(-90)" text-anchor="start" font-size="8" fill="${isCurrent ? '#4338ca' : '#9ca3af'}" font-weight="${isCurrent ? '700' : '500'}">$${val}</text>`);
+        const currentColor = cat.isInvest ? '#15803d' : '#4338ca';
+        parts.push(`<text transform="translate(${lx},${ly}) rotate(-90)" text-anchor="start" font-size="8" fill="${isCurrent ? currentColor : '#9ca3af'}" font-weight="${isCurrent ? '700' : '500'}">$${val}</text>`);
       }
     });
 
@@ -182,6 +185,9 @@ function buildSVGChart(monthLabels, catData) {
     parts.push(`<text x="${(lx + 13).toFixed(1)}" y="${legendY}" font-size="9" fill="#6b7280">${it.text}</text>`);
     lx += itemW[i];
   });
+  // Invest legend swatch
+  parts.push(`<rect x="${lx.toFixed(1)}" y="${(legendY - 8).toFixed(1)}" width="10" height="10" rx="2" fill="#16a34a"/>`);
+  parts.push(`<text x="${(lx + 13).toFixed(1)}" y="${legendY}" font-size="9" fill="#6b7280">&#x1F4B9; Invest</text>`);
 
   return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${svgW}px;display:block;" overflow="visible">${parts.join('')}</svg>`;
 }
@@ -261,6 +267,15 @@ export default async function handler(req, res) {
       emoji: CAT_EMOJI[cat] ?? '📌',
       values: allByCategory.map(byC => Math.round(byC[cat] ?? 0)),
     }));
+
+    // Add invest totals as a distinct bar group if any invest entries exist
+    const allInvestTotals = allMonths.map(({ exps }) =>
+      Math.round(exps.filter(e => e.type === 'invest')
+        .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0))
+    );
+    if (allInvestTotals.some(v => v > 0)) {
+      catChartData.push({ name: 'Invest', emoji: '💹', values: allInvestTotals, isInvest: true });
+    }
 
     // ── Generate chart SVG ───────────────────────────────────────────────
     const chartSVG = buildSVGChart(chartMonthLabels, catChartData);

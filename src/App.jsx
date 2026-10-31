@@ -190,36 +190,37 @@ export default function App() {
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
 
+  const filterActiveRef = useRef(false);
+
+  const clearAllFilters = () => {
+    filterActiveRef.current = false;
+    setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null); setSelectedCategory(null);
+  };
+
+  const clearFiltersAndNav = () => { closeSubNav(); clearAllFilters(); };
+
   const handleTagSelect = (tag) => {
-    setSelectedTag(tag);
-    setSelectedAccount(null);
-    setSelectedPayee(null);
-    setTab('expenses');
-    setSelectedCategory(null);
+    if (!filterActiveRef.current) { filterActiveRef.current = true; pushSubNav(); }
+    setSelectedTag(tag); setSelectedAccount(null); setSelectedPayee(null);
+    setTab('expenses'); setSelectedCategory(null);
   };
 
   const handleAccountSelect = (accId) => {
-    setSelectedAccount(accId);
-    setSelectedTag(null);
-    setSelectedPayee(null);
-    setTab('expenses');
-    setSelectedCategory(null);
+    if (!filterActiveRef.current) { filterActiveRef.current = true; pushSubNav(); }
+    setSelectedAccount(accId); setSelectedTag(null); setSelectedPayee(null);
+    setTab('expenses'); setSelectedCategory(null);
   };
 
   const handlePayeeSelect = (payee) => {
-    setSelectedPayee(payee);
-    setSelectedTag(null);
-    setSelectedAccount(null);
-    setSelectedCategory(null);
-    setTab('expenses');
+    if (!filterActiveRef.current) { filterActiveRef.current = true; pushSubNav(); }
+    setSelectedPayee(payee); setSelectedTag(null); setSelectedAccount(null);
+    setSelectedCategory(null); setTab('expenses');
   };
 
   const handleCategorySelect = (catId) => {
-    setSelectedCategory(catId);
-    setSelectedTag(null);
-    setSelectedAccount(null);
-    setSelectedPayee(null);
-    setTab('expenses');
+    if (!filterActiveRef.current) { filterActiveRef.current = true; pushSubNav(); }
+    setSelectedCategory(catId); setSelectedTag(null); setSelectedAccount(null);
+    setSelectedPayee(null); setTab('expenses');
   };
 
   // Demo mode: no Firebase creds
@@ -267,6 +268,7 @@ export default function App() {
       if (showModalRef.current)    { showModalRef.current = false;    setShowModal(false); setEditTarget(null); return; }
       if (showSettingsRef.current) { showSettingsRef.current = false; setShowSettings(false); return; }
       if (selCatRef.current)       { selCatRef.current = null;        setSelectedCategory(null); return; }
+      if (filterActiveRef.current) { filterActiveRef.current = false; setSelectedTag(null); setSelectedAccount(null); setSelectedPayee(null); setSelectedCategory(null); return; }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -686,17 +688,17 @@ export default function App() {
             allowEditOthers={settings.allowEditOthers}
             allExpenses={allExpenses}
             selectedTag={selectedTag}
-            onClearTag={() => setSelectedTag(null)}
+            onClearTag={clearFiltersAndNav}
             onTagSelect={handleTagSelect}
             selectedAccount={selectedAccount}
-            onClearAccount={() => setSelectedAccount(null)}
+            onClearAccount={clearFiltersAndNav}
             onAccountSelect={handleAccountSelect}
             accountMap={accountMap}
             selectedPayee={selectedPayee}
-            onClearPayee={() => setSelectedPayee(null)}
+            onClearPayee={clearFiltersAndNav}
             onPayeeSelect={handlePayeeSelect}
             selectedCategory={selectedCategory}
-            onClearCategory={() => setSelectedCategory(null)}
+            onClearCategory={clearFiltersAndNav}
             onCategorySelect={handleCategorySelect}
             highlightIds={highlightIds}
           />

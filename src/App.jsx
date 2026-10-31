@@ -190,12 +190,6 @@ export default function App() {
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
 
-  const profileRef            = useRef(null);
-  useEffect(() => { profileRef.current = profile; }, [profile]);
-  const allExpInitializedRef  = useRef(false);
-  const [toast,               setToast]          = useState(null); // { message, key }
-  const toastTimerRef         = useRef(null);
-
   const handleTagSelect = (tag) => {
     setSelectedTag(tag);
     setSelectedAccount(null);
@@ -231,6 +225,12 @@ export default function App() {
   // Demo mode: no Firebase creds
   const isDemo = !import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID === 'dummy-project';
   const profile = isDemo ? DEMO_PROFILES[demoUser] : realProfile;
+
+  const profileRef            = useRef(null);
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+  const allExpInitializedRef  = useRef(false);
+  const [toast,               setToast]          = useState(null); // { message, key }
+  const toastTimerRef         = useRef(null);
 
   // Settings: tags, accounts, categories — shared via Firestore (household/settings),
   // cached in localStorage so the app still starts offline

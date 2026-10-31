@@ -392,6 +392,7 @@ export default function App() {
         const name   = data.addedByName ?? 'Your partner';
         const amount = data.sgdAmount != null ? data.sgdAmount : Math.abs(data.amount ?? 0);
         const label  = [data.payee, `SGD ${Number(amount).toFixed(2)}`].filter(Boolean).join(' · ');
+        playChime();
         setToast({ message: `${name} added: ${label}`, key: change.doc.id });
         if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
         toastTimerRef.current = setTimeout(() => setToast(null), 4500);
@@ -695,6 +696,23 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1100].forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.16;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+      osc.start(t); osc.stop(t + 0.38);
+    });
+  } catch {}
 }
 
 function lastDay(y, m) {

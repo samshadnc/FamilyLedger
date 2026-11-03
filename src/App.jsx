@@ -488,6 +488,24 @@ export default function App() {
     return accountNames.map(name => ({ uid: uidMap.get(name) ?? null, displayName: name }));
   }, [allExpenses, profile, settings]);
 
+  // Top payees from the last 3 months, ranked by frequency
+  const quickPayees = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 3);
+    const cutoffStr = cutoff.toISOString().slice(0, 7); // 'YYYY-MM'
+    const freq = {};
+    for (const exp of allExpenses ?? []) {
+      if (!exp.payee || !exp.date) continue;
+      if (exp.date.slice(0, 7) < cutoffStr) continue;
+      const key = exp.payee.trim();
+      if (!key) continue;
+      freq[key] = (freq[key] ?? 0) + 1;
+    }
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
+  }, [allExpenses]);
+
   const handleSave = async (data) => {
     if (isDemo) {
       if (editTarget) {
@@ -774,6 +792,7 @@ export default function App() {
           profile={profile}
           availableTags={settings.tags}
           availableAccounts={settings.accounts}
+          quickPayees={quickPayees}
           readOnly={!!(editTarget && editTarget.addedBy !== profile?.uid && !settings.allowEditOthers)}
         />
       )}

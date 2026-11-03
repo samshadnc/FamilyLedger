@@ -6,7 +6,7 @@ import BankBadge from './BankBadge';
 import { saveReceiptBlob, getReceiptBlob, deleteReceiptBlob } from '../utils/receiptDb';
 import { runOCR } from '../hooks/useOCR';
 
-export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onDelete, profile, availableTags, availableAccounts, readOnly, allowAddForOthers, otherMembers }) {
+export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onDelete, profile, availableTags, availableAccounts, quickPayees, readOnly, allowAddForOthers, otherMembers }) {
   const editing = !!expense;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'saved'
@@ -29,6 +29,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
     return list.find(a => a.label.toLowerCase().includes('dbs'))?.id ?? list[0]?.id ?? '';
   });
   const [payee,      setPayee]      = useState(expense?.payee    ?? '');
+  const [showPayeeSuggestions, setShowPayeeSuggestions] = useState(false);
   const [tags,       setTags]       = useState(expense?.tags     ?? []);
   const [note,       setNote]       = useState(expense?.note     ?? '');
   const [date,       setDate]       = useState(expense?.date     ?? today());
@@ -447,19 +448,40 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
           )}
 
           {/* Payee */}
-          <div>
+          <div className="relative">
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
               Shop / Payee <span className="text-gray-300 normal-case font-normal">(optional)</span>
             </label>
             <input
               type="text"
               value={payee}
-              onChange={e => !readOnly && setPayee(e.target.value)}
+              onChange={e => { if (!readOnly) { setPayee(e.target.value); setShowPayeeSuggestions(true); } }}
+              onFocus={() => !readOnly && setShowPayeeSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowPayeeSuggestions(false), 150)}
               readOnly={readOnly}
               placeholder="e.g. Sheng Siong, Canteen, Singtel"
               maxLength={60}
               className={`w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 ${readOnly ? 'bg-gray-50 text-gray-600' : ''}`}
             />
+            {showPayeeSuggestions && !readOnly && (() => {
+              const q = payee.trim().toLowerCase();
+              const matches = (quickPayees ?? []).filter(p => p.toLowerCase().includes(q) && p !== payee);
+              return matches.length > 0 ? (
+                <ul className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
+                  {matches.slice(0, 8).map(p => (
+                    <li key={p}>
+                      <button
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); setPayee(p); setShowPayeeSuggestions(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 first:rounded-t-xl last:rounded-b-xl"
+                      >
+                        {p}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null;
+            })()}
           </div>
 
           {/* Note */}

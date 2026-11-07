@@ -426,6 +426,16 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, month: label, total, transactions: regularExps.length });
   } catch (err) {
     console.error('monthly-report error:', err);
+    // Try to send a debug email so we can see the error even if logs are unavailable
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: 'FamilyLedger <onboarding@resend.dev>',
+        to: REPORT_EMAILS,
+        subject: `FamilyLedger — ERROR: ${err.message?.slice(0, 60)}`,
+        html: `<pre>${err.stack ?? err.message}</pre>`,
+      });
+    } catch (_) {}
     return res.status(500).json({ error: err.message });
   }
 }

@@ -52,7 +52,7 @@ async function getAIInsights(lastMonthData, prevMonthsData, monthLabel) {
     const byPayee = {};
     let total = 0;
     for (const e of exps) {
-      if (e.type === 'invest' || e.type === 'income') continue;
+      if (e.type === 'investment' || e.type === 'income') continue;
       const sgd = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
       if (sgd <= 0) continue;
       byCategory[e.category] = (byCategory[e.category] ?? 0) + sgd;
@@ -113,7 +113,7 @@ Be warm and personal, use "you" not "the family". Mention actual payee names and
 function spendByCategory(exps) {
   const byC = {};
   for (const e of exps) {
-    if (e.type === 'invest' || e.type === 'income') continue;
+    if (e.type === 'investment' || e.type === 'income') continue;
     const sgd = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
     if (sgd <= 0) continue;
     byC[e.category] = (byC[e.category] ?? 0) + sgd;
@@ -203,7 +203,7 @@ export default async function handler(req, res) {
     // ── Compute stats ─────────────────────────────────────────────────────
     // Regular expenses only (exclude invest/income and negative entries) — matches the app summary
     const regularExps = lastMonthExps.filter(
-      e => e.type !== 'invest' && e.type !== 'income' && (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)) > 0
+      e => e.type !== 'investment' && e.type !== 'income' && (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)) > 0
     );
     const total = regularExps.reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
 
@@ -216,7 +216,7 @@ export default async function handler(req, res) {
       .slice(0, 6);
 
     // ── Investments & borrowings ──────────────────────────────────────────
-    const investExps = lastMonthExps.filter(e => e.type === 'invest');
+    const investExps = lastMonthExps.filter(e => e.type === 'investment');
     const investTotal = investExps.reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
 
     const borrowExps = lastMonthExps.filter(e => e.amount < 0);
@@ -241,7 +241,7 @@ export default async function handler(req, res) {
 
     // Add invest totals as a distinct bar group if any invest entries exist
     const allInvestTotals = allMonths.map(({ exps }) =>
-      Math.round(exps.filter(e => e.type === 'invest')
+      Math.round(exps.filter(e => e.type === 'investment')
         .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0))
     );
     if (allInvestTotals.some(v => v > 0)) {

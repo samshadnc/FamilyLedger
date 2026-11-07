@@ -345,11 +345,11 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
             <p className="text-xs text-gray-400 mt-0.5">Display the invested tile on the home screen</p>
           </div>
           <button
-            onClick={() => onSave({ ...settings, showInvestmentTile: !(settings.showInvestmentTile ?? true) })}
-            className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none ${(settings.showInvestmentTile ?? true) ? 'bg-indigo-600' : 'bg-gray-200'}`}
+            onClick={() => onSave({ ...settings, showInvestmentTile: !(settings.showInvestmentTile ?? false) })}
+            className={`relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none ${(settings.showInvestmentTile ?? false) ? 'bg-indigo-600' : 'bg-gray-200'}`}
             aria-label="Toggle investment tile"
           >
-            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${(settings.showInvestmentTile ?? true) ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${(settings.showInvestmentTile ?? false) ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
         </div>
       </div>

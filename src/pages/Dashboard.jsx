@@ -409,7 +409,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
               S${fmtCompact(safePerDay)}
             </p>
           </div>
-          {(showInvestmentTile ?? true) && (
+          {(showInvestmentTile ?? false) && (
             <div className="flex-1 py-3 px-2 text-center">
               <p className="text-[11px] text-gray-400 mb-0.5">Invested · Total</p>
               <p className="text-sm font-bold text-violet-600">S${fmtCompact(investmentTotal)} <span className="text-[11px] font-normal text-violet-400">/ S${fmtCompact(allTimeInvestment)}</span></p>

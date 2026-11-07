@@ -707,7 +707,7 @@ export default function App() {
             onTagSelect={handleTagSelect}
             onPayeeSelect={handlePayeeSelect}
             allowEditOthers={settings.allowEditOthers}
-            showInvestmentTile={settings.showInvestmentTile ?? true}
+            showInvestmentTile={settings.showInvestmentTile ?? false}
             presets={settings.presets ?? DEFAULT_PRESETS}
             onPresetSave={handlePresetSave}
             accountMap={accountMap}

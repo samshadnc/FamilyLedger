@@ -3,7 +3,7 @@ import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
 import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText, UNBUDGETED_TAG, isUnbudgeted } from '../constants';
 
-export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, presets, onPresetSave, accountMap }) {
+export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
   const [trendsMonth, setTrendsMonth] = useState(month);
   const [showSearch, setShowSearch] = useState(false);
@@ -69,6 +69,12 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
     return { totalExpense: expense, totalIncome: income, investmentTotal, byCategoryByCur: catMap, byPerson: bp, recentExpenses: recent, dailyData, categoryTotals };
   }, [expenses, month, memberNames]);
+
+  const allTimeInvestment = useMemo(() =>
+    (allExpenses ?? [])
+      .filter(e => e.type === 'investment')
+      .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0),
+  [allExpenses]);
 
   // Last-month review banner (shown first 5 days of a new month)
   const lastMonthYM = useMemo(() => {
@@ -403,10 +409,10 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
               S${fmtCompact(safePerDay)}
             </p>
           </div>
-          {investmentTotal > 0 && (
+          {(showInvestmentTile ?? true) && (
             <div className="flex-1 py-3 px-2 text-center">
-              <p className="text-[11px] text-gray-400 mb-0.5">Invested</p>
-              <p className="text-sm font-bold text-violet-600">S${fmtCompact(investmentTotal)}</p>
+              <p className="text-[11px] text-gray-400 mb-0.5">Invested · Total</p>
+              <p className="text-sm font-bold text-violet-600">S${fmtCompact(investmentTotal)} <span className="text-[11px] font-normal text-violet-400">/ S${fmtCompact(allTimeInvestment)}</span></p>
             </div>
           )}
         </div>

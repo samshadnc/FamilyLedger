@@ -17,6 +17,7 @@ import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2, Bell
 import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER, UNBUDGETED_TAG } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
+import { App as CapApp } from '@capacitor/app';
 
 // Real October 2026 data imported from Axio (Samshad) + fake Sahla entries
 const DEMO_EXPENSES = [
@@ -261,6 +262,8 @@ export default function App() {
   const pushSubNav  = () => history.pushState({ fl: 'sub' }, '');
   const closeSubNav = () => { poppingRef.current = true; history.back(); };
 
+  const backExitRef = useRef(false);
+
   useEffect(() => {
     history.replaceState({ fl: 'main' }, '');
     const onPop = () => {
@@ -272,6 +275,45 @@ export default function App() {
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // Wire Capacitor hardware back button into the same nav logic
+  useEffect(() => {
+    let listener;
+    CapApp.addListener('backButton', () => {
+      const canGoBack = showModalRef.current || showSettingsRef.current || selCatRef.current || filterActiveRef.current;
+      if (canGoBack) {
+        history.back();
+        return;
+      }
+      // At root — press twice to exit
+      if (backExitRef.current) {
+        CapApp.exitApp();
+        return;
+      }
+      backExitRef.current = true;
+      // Simple toast via a temporary DOM element
+      const toast = document.createElement('div');
+      toast.textContent = 'Press back again to exit';
+      toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:20px;font-size:14px;z-index:9999;pointer-events:none';
+      document.body.appendChild(toast);
+      setTimeout(() => { backExitRef.current = false; toast.remove(); }, 2000);
+    }).then(h => { listener = h; });
+    return () => { listener?.remove(); };
+  }, []);
+
+  // Widget action handler — called by MainActivity when app is opened from home screen widget
+  useEffect(() => {
+    window.__widgetAction = (type) => {
+      setEditTarget(null);
+      showModalRef.current = true;
+      setShowModal(true);
+      pushSubNav();
+      // Store the requested type so the modal can pre-select it
+      window.__widgetType = type;
+    };
+    return () => { delete window.__widgetAction; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Settings: tags, accounts, categories — shared via Firestore (household/settings),
@@ -691,6 +733,7 @@ export default function App() {
             onTagSelect={handleTagSelect}
             onPayeeSelect={handlePayeeSelect}
             allowEditOthers={settings.allowEditOthers}
+            showInvestmentTile={settings.showInvestmentTile ?? true}
             presets={settings.presets ?? DEFAULT_PRESETS}
             onPresetSave={handlePresetSave}
             accountMap={accountMap}
@@ -756,7 +799,7 @@ export default function App() {
       )}
 
       {/* Bottom nav — Axio style 4-tab */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex items-center">
+      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-40 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex items-center" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>
         <button onClick={() => { setShowSettings(false); setTab('dashboard'); setSelectedCategory(null); setDashKey(k => k + 1); }} className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors ${tab === 'dashboard' && !showSettings ? 'text-indigo-600' : 'text-gray-400'}`}>
           <LayoutDashboard size={20} />
           <span>Home</span>

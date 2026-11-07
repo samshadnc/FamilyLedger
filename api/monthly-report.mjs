@@ -97,10 +97,11 @@ Be warm and personal, use "you" not "the family". Mention actual payee names and
         }
       );
       const data = await res.json();
+      console.log(`[AI] model=${model} status=${res.status} error=${data?.error?.message ?? 'none'}`);
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
-    } catch {
-      // try next model
+    } catch (err) {
+      console.error(`[AI] model=${model} threw:`, err.message);
     }
   }
   return '';

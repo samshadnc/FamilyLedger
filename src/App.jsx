@@ -17,7 +17,6 @@ import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2, Bell
 import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER, UNBUDGETED_TAG } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
-import { App as CapApp } from '@capacitor/app';
 
 // Real October 2026 data imported from Axio (Samshad) + fake Sahla entries
 const DEMO_EXPENSES = [
@@ -262,7 +261,6 @@ export default function App() {
   const pushSubNav  = () => history.pushState({ fl: 'sub' }, '');
   const closeSubNav = () => { poppingRef.current = true; history.back(); };
 
-  const backExitRef = useRef(false);
 
   useEffect(() => {
     history.replaceState({ fl: 'main' }, '');
@@ -277,30 +275,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Wire Capacitor hardware back button into the same nav logic
-  useEffect(() => {
-    let listener;
-    CapApp.addListener('backButton', () => {
-      const canGoBack = showModalRef.current || showSettingsRef.current || selCatRef.current || filterActiveRef.current;
-      if (canGoBack) {
-        history.back();
-        return;
-      }
-      // At root — press twice to exit
-      if (backExitRef.current) {
-        CapApp.exitApp();
-        return;
-      }
-      backExitRef.current = true;
-      // Simple toast via a temporary DOM element
-      const toast = document.createElement('div');
-      toast.textContent = 'Press back again to exit';
-      toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:20px;font-size:14px;z-index:9999;pointer-events:none';
-      document.body.appendChild(toast);
-      setTimeout(() => { backExitRef.current = false; toast.remove(); }, 2000);
-    }).then(h => { listener = h; });
-    return () => { listener?.remove(); };
-  }, []);
 
   // Widget action handler — called by MainActivity when app is opened from home screen widget
   useEffect(() => {

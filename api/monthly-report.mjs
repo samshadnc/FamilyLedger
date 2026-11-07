@@ -52,7 +52,9 @@ async function getAIInsights(lastMonthData, prevMonthsData, monthLabel) {
     const byPayee = {};
     let total = 0;
     for (const e of exps) {
+      if (e.type === 'invest' || e.type === 'income') continue;
       const sgd = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+      if (sgd <= 0) continue;
       byCategory[e.category] = (byCategory[e.category] ?? 0) + sgd;
       if (e.payee) byPayee[e.payee] = (byPayee[e.payee] ?? 0) + sgd;
       total += sgd;
@@ -111,7 +113,7 @@ Be warm and personal, use "you" not "the family". Mention actual payee names and
 function spendByCategory(exps) {
   const byC = {};
   for (const e of exps) {
-    if (e.type === 'invest') continue;
+    if (e.type === 'invest' || e.type === 'income') continue;
     const sgd = e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
     if (sgd <= 0) continue;
     byC[e.category] = (byC[e.category] ?? 0) + sgd;
@@ -250,7 +252,7 @@ export default async function handler(req, res) {
     const chartImgUrl = buildChartImageUrl(chartMonthLabels, catChartData);
 
     // ── AI insights ───────────────────────────────────────────────────────
-    const aiInsights = await getAIInsights(lastMonthExps, prevMonthsData, label);
+    const aiInsights = await getAIInsights(regularExps, prevMonthsData, label);
 
     // ── CSV attachment ────────────────────────────────────────────────────
     const csv = buildCSV(lastMonthExps);

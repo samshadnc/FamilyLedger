@@ -85,7 +85,7 @@ Write 4-5 sentences that:
 Be warm and personal, use "you" not "the family". Mention actual payee names and SGD amounts. No bullet points — just flowing sentences.`;
 
   // Try models in order until one works
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+  const models = ['gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   for (const model of models) {
     try {
       const res = await fetch(

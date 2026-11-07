@@ -41,7 +41,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     });
 
     const investmentTotal = expenses
-      .filter(e => e.type === 'investment')
+      .filter(e => e.type === 'investment' && (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)) >= 0)
       .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
 
     // Build daily bar data (all days of month)
@@ -72,7 +72,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
   const allTimeInvestment = useMemo(() =>
     (allExpenses ?? [])
-      .filter(e => e.type === 'investment')
+      .filter(e => e.type === 'investment' && (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)) >= 0)
       .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0),
   [allExpenses]);
 

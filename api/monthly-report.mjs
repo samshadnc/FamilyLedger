@@ -9,6 +9,7 @@ const CAT_EMOJI = {
   shopping: '🛍️', health: '🏥', entertainment: '🎬', rent: '🏠',
   education: '📚', travel: '✈️', subscriptions: '📱', insurance: '🛡️',
   personal: '💇', kids: '👶', food: '🍔', others: '📦',
+  other: '📦', family: '👨‍👩‍👧', savings: '🏦', misc: '🗂️',
 };
 
 function getAdminApp() {
@@ -111,85 +112,42 @@ function spendByCategory(exps) {
   return byC;
 }
 
-function buildSVGChart(monthLabels, catData) {
-  const svgW = 500, svgH = 230;
-  const padL = 40, padR = 14, padT = 54, padB = 52;
-  const chartW = svgW - padL - padR;
-  const chartH = svgH - padT - padB;
-
+function buildChartImageUrl(monthLabels, catData) {
   const monthColors  = ['#c7d2fe', '#a5b4fc', '#818cf8', '#6366f1'];
   const investColors = ['#bbf7d0', '#86efac', '#4ade80', '#16a34a'];
-  const nCats = catData.length;
-  const nMonths = monthLabels.length;
 
-  const maxVal = Math.max(...catData.flatMap(c => c.values), 1);
-  const gridMax = Math.ceil(maxVal / 100) * 100 || 100;
+  // One dataset per month (grouped bars), one label per category
+  const categoryLabels = catData.map(c => `${c.emoji} ${c.name}`);
 
-  const barW = 11;
-  const barGap = 2;
-  const groupBarSpan = nMonths * barW + (nMonths - 1) * barGap;
-  const groupW = chartW / nCats;
-  const groupOffset = (groupW - groupBarSpan) / 2;
-
-  const parts = [];
-
-  // Grid lines + y-axis labels
-  for (let i = 0; i <= 4; i++) {
-    const val = (gridMax / 4) * i;
-    const y = (padT + chartH - (val / gridMax) * chartH).toFixed(1);
-    const isBase = i === 0;
-    parts.push(`<line x1="${padL}" y1="${y}" x2="${svgW - padR}" y2="${y}" stroke="${isBase ? '#d1d5db' : '#f0f0f4'}" stroke-width="${isBase ? '1.5' : '1'}"/>`);
-    if (i > 0) {
-      const lbl = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val;
-      parts.push(`<text x="${padL - 5}" y="${(parseFloat(y) + 3.5).toFixed(1)}" text-anchor="end" font-size="9" fill="#9ca3af">${lbl}</text>`);
-    }
-  }
-
-  // Bars + value labels
-  catData.forEach((cat, ci) => {
-    cat.values.forEach((val, mi) => {
-      const x = padL + ci * groupW + groupOffset + mi * (barW + barGap);
-      const h = val > 0 ? (val / gridMax) * chartH : 0;
-      const y = padT + chartH - h;
-      const colors = cat.isInvest ? investColors : monthColors;
-
-      if (h > 0) {
-        parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" rx="3" fill="${colors[mi]}"/>`);
-      }
-
-      // Rotated value label above bar
-      if (val > 0) {
-        const lx = (x + barW / 2).toFixed(1);
-        const ly = (y - 3).toFixed(1);
-        const isCurrent = mi === nMonths - 1;
-        const currentColor = cat.isInvest ? '#15803d' : '#4338ca';
-        parts.push(`<text transform="translate(${lx},${ly}) rotate(-90)" text-anchor="start" font-size="8" fill="${isCurrent ? currentColor : '#9ca3af'}" font-weight="${isCurrent ? '700' : '500'}">$${val}</text>`);
-      }
-    });
-
-    // Category label: emoji + name
-    const cx = (padL + ci * groupW + groupW / 2).toFixed(1);
-    const lblY = padT + chartH;
-    parts.push(`<text x="${cx}" y="${lblY + 16}" text-anchor="middle" font-size="13">${cat.emoji}</text>`);
-    parts.push(`<text x="${cx}" y="${lblY + 28}" text-anchor="middle" font-size="9" fill="#6b7280" font-weight="500">${cat.name}</text>`);
+  const datasets = monthLabels.map((m, mi) => {
+    const isLast = mi === monthLabels.length - 1;
+    return {
+      label: isLast ? `${m} (this month)` : m,
+      data: catData.map(c => c.values[mi] ?? 0),
+      backgroundColor: catData.map(c => (c.isInvest ? investColors : monthColors)[mi]),
+      borderRadius: 3,
+    };
   });
 
-  // Legend (centred)
-  const legendItems = monthLabels.map((m, i) => ({ text: m + (i === nMonths - 1 ? ' (this month)' : ''), color: monthColors[i] }));
-  const itemW = legendItems.map(it => 14 + it.text.length * 5.6 + 12);
-  const totalLW = itemW.reduce((a, b) => a + b, 0);
-  let lx = Math.max(padL, (svgW - totalLW) / 2);
-  const legendY = padT + chartH + 44;
-  legendItems.forEach((it, i) => {
-    parts.push(`<rect x="${lx.toFixed(1)}" y="${(legendY - 8).toFixed(1)}" width="10" height="10" rx="2" fill="${it.color}"/>`);
-    parts.push(`<text x="${(lx + 13).toFixed(1)}" y="${legendY}" font-size="9" fill="#6b7280">${it.text}</text>`);
-    lx += itemW[i];
-  });
-  // Invest legend swatch
-  parts.push(`<rect x="${lx.toFixed(1)}" y="${(legendY - 8).toFixed(1)}" width="10" height="10" rx="2" fill="#16a34a"/>`);
-  parts.push(`<text x="${(lx + 13).toFixed(1)}" y="${legendY}" font-size="9" fill="#6b7280">&#x1F4B9; Invest</text>`);
+  const config = {
+    type: 'bar',
+    data: { labels: categoryLabels, datasets },
+    options: {
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 10 } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: {
+          grid: { color: '#f0f0f4' },
+          ticks: { font: { size: 10 }, callback: 'function(v){return v>=1000?(v/1000).toFixed(1)+"k":v}' },
+        },
+      },
+    },
+  };
 
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${svgW}px;display:block;" overflow="visible">${parts.join('')}</svg>`;
+  const encoded = encodeURIComponent(JSON.stringify(config));
+  return `https://quickchart.io/chart?w=520&h=240&bkg=white&c=${encoded}`;
 }
 
 export default async function handler(req, res) {
@@ -277,8 +235,8 @@ export default async function handler(req, res) {
       catChartData.push({ name: 'Invest', emoji: '💹', values: allInvestTotals, isInvest: true });
     }
 
-    // ── Generate chart SVG ───────────────────────────────────────────────
-    const chartSVG = buildSVGChart(chartMonthLabels, catChartData);
+    // ── Generate chart image URL (QuickChart.io — renders correctly in Gmail) ──
+    const chartImgUrl = buildChartImageUrl(chartMonthLabels, catChartData);
 
     // ── AI insights ───────────────────────────────────────────────────────
     const aiInsights = await getAIInsights(lastMonthExps, prevMonthsData, label);
@@ -345,7 +303,7 @@ export default async function handler(req, res) {
       <div style="background:linear-gradient(135deg,#6366f1,#7c3aed);padding:28px 30px 24px;color:#fff;">
         <p style="margin:0 0 4px;font-size:11px;opacity:0.75;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">FamilyLedger</p>
         <h1 style="margin:0 0 4px;font-size:24px;font-weight:800;letter-spacing:-0.02em;">${label} Overview</h1>
-        <p style="margin:0;font-size:13px;opacity:0.75;">Samshad &amp; Sahla &middot; Singapore</p>
+        <p style="margin:0;font-size:13px;opacity:0.75;">Samshad &middot; Singapore</p>
       </div>
 
       <!-- Stat strip -->
@@ -384,7 +342,7 @@ export default async function handler(req, res) {
       <!-- 4-month chart -->
       <div style="padding:22px 20px 18px;">
         <p style="margin:0 0 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;">4-Month Trend</p>
-        ${chartSVG}
+        <img src="${chartImgUrl}" width="520" alt="4-month spending trend" style="width:100%;max-width:520px;display:block;border-radius:8px;" />
       </div>
 
       <!-- Investments & Savings -->

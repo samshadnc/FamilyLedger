@@ -198,7 +198,11 @@ export default async function handler(req, res) {
     const budget = settings.monthlyBudget ?? 0;
 
     // ── Compute stats ─────────────────────────────────────────────────────
-    const total = lastMonthExps.reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
+    // Regular expenses only (exclude invest/income and negative entries) — matches the app summary
+    const regularExps = lastMonthExps.filter(
+      e => e.type !== 'invest' && e.type !== 'income' && (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)) > 0
+    );
+    const total = regularExps.reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
 
     // Category breakdown (regular expenses only, for "This Month" section)
     const lastByCategory = spendByCategory(lastMonthExps);
@@ -323,12 +327,12 @@ export default async function handler(req, res) {
             ${budget > 0
               ? `<div style="font-size:20px;font-weight:800;color:${budgetColor};">${budgetPct}%</div>
                  <div style="font-size:11px;color:#6b7280;font-weight:500;margin-top:3px;">of S$${budget.toFixed(0)} budget</div>`
-              : `<div style="font-size:20px;font-weight:800;color:#111827;">${lastMonthExps.length}</div>
+              : `<div style="font-size:20px;font-weight:800;color:#111827;">${regularExps.length}</div>
                  <div style="font-size:11px;color:#6b7280;font-weight:500;margin-top:3px;">transactions</div>`
             }
           </td>
           <td style="padding:16px 14px;text-align:center;">
-            <div style="font-size:20px;font-weight:800;color:#111827;">${lastMonthExps.length}</div>
+            <div style="font-size:20px;font-weight:800;color:#111827;">${regularExps.length}</div>
             <div style="font-size:11px;color:#6b7280;font-weight:500;margin-top:3px;">transactions</div>
           </td>
         </tr>
@@ -394,7 +398,7 @@ export default async function handler(req, res) {
       <!-- Footer -->
       <div style="padding:16px 28px 22px;border-top:1px solid #f3f4f6;">
         <p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.6;">
-          📎 CSV of all ${lastMonthExps.length} transactions attached &middot;
+          📎 CSV of all ${regularExps.length} transactions attached &middot;
           FamilyLedger auto-report &middot; sent on the 3rd of every month
         </p>
       </div>
@@ -416,7 +420,7 @@ export default async function handler(req, res) {
       }],
     });
 
-    return res.status(200).json({ ok: true, month: label, total, transactions: lastMonthExps.length });
+    return res.status(200).json({ ok: true, month: label, total, transactions: regularExps.length });
   } catch (err) {
     console.error('monthly-report error:', err);
     return res.status(500).json({ error: err.message });

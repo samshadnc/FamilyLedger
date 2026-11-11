@@ -14,7 +14,13 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   // proxyUser: null = adding for self, { uid, displayName } = adding for another member
   const [proxyUser, setProxyUser] = useState(null);
 
-  const [type,       setType]       = useState(expense?.type     ?? 'expense');
+  const [type,       setType]       = useState(() => {
+    if (expense?.type) return expense.type;
+    // Pre-select type when opened from home screen widget
+    const wt = window.__widgetType;
+    if (wt) { delete window.__widgetType; return wt; }
+    return 'expense';
+  });
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [borrowing,  setBorrowing]  = useState(expense?.type === 'investment' && (expense?.amount ?? 0) < 0);
   const [platform,   setPlatform]   = useState(expense?.platform  ?? '');
@@ -355,6 +361,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                   onChange={e => !readOnly && setAmount(e.target.value)}
                   readOnly={readOnly}
                   placeholder="0.00"
+                  autoFocus={!readOnly}
                   className={`flex-1 min-w-0 border rounded-xl px-3 py-3 text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400 ${errors.amount ? 'border-red-400' : 'border-gray-200'} ${readOnly ? 'bg-gray-50 text-gray-600' : ''}`}
                 />
               </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { uploadToDrive } from '../utils/driveBackup';
 import { registerBackupReminder, unregisterBackupReminder, isBackupReminderEnabled } from '../utils/backupReminder';
 import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
@@ -55,7 +55,7 @@ function PresetFields({ value, onChange }) {
   );
 }
 
-export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone }) {
+export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone, scrollToBackup }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(null); // person name or null
@@ -71,6 +71,13 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderStatus, setReminderStatus] = useState(null); // null | 'unsupported'
   useEffect(() => { isBackupReminderEnabled().then(setReminderEnabled); }, []);
+
+  const backupSectionRef = useRef(null);
+  useEffect(() => {
+    if (scrollToBackup && backupSectionRef.current) {
+      setTimeout(() => backupSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    }
+  }, [scrollToBackup]);
 
   useEffect(() => {
     history.pushState({ flSettings: true }, '');
@@ -716,7 +723,7 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
 
       {/* ── Drive Backup ─────────────────────────────── */}
       {profile?.email === 'samshadnc@gmail.com' && (
-        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div ref={backupSectionRef} className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 pt-4 pb-2">
             <p className="text-sm font-bold text-gray-900">Google Drive Backup</p>
             <p className="text-xs text-gray-400 mt-0.5">

@@ -494,6 +494,7 @@ export default function App() {
 
   // Backup reminder banner — shown once per session if reminder is on and 7+ days since last backup
   const [showBackupBanner, setShowBackupBanner] = useState(false);
+  const openedFromBackupBanner = useRef(false);
   useEffect(() => {
     if (shouldShowBackupReminder()) setShowBackupBanner(true);
   }, []);
@@ -654,7 +655,7 @@ export default function App() {
           <span className="text-sm font-medium">💾 Back up your data — it's been 7+ days</span>
           <div className="flex items-center gap-2 ml-2 flex-shrink-0">
             <button
-              onClick={() => { setShowBackupBanner(false); showSettingsRef.current = true; setShowSettings(true); pushSubNav(); }}
+              onClick={() => { setShowBackupBanner(false); openedFromBackupBanner.current = true; showSettingsRef.current = true; setShowSettings(true); pushSubNav(); }}
               className="text-xs font-bold bg-white text-amber-700 px-2.5 py-1 rounded-full"
             >
               Back up
@@ -693,7 +694,7 @@ export default function App() {
           <Settings
             settings={settings}
             onSave={handleSaveSettings}
-            onBack={() => { showSettingsRef.current = false; setShowSettings(false); closeSubNav(); }}
+            onBack={() => { showSettingsRef.current = false; setShowSettings(false); openedFromBackupBanner.current = false; closeSubNav(); }}
             profile={profile}
             dark={dark}
             onToggleDark={toggleDark}
@@ -703,6 +704,7 @@ export default function App() {
             allExpenses={isDemo ? DEMO_ALL_EXPENSES : allExpenses}
             lastBackupDate={lastBackupDate}
             onBackupDone={(ts) => setLastBackupDate(ts)}
+            scrollToBackup={openedFromBackupBanner.current}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail

@@ -1,36 +1,27 @@
-const SYNC_TAG = 'backup-reminder';
+const FLAG_KEY   = 'fl_backup_reminder';
+const BACKUP_KEY = 'fl_last_drive_backup';
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
 export async function registerBackupReminder() {
-  if (!('serviceWorker' in navigator)) return { ok: false, reason: 'no-sw' };
-  if (!('periodicSync' in (await navigator.serviceWorker.ready))) return { ok: false, reason: 'no-periodic-sync' };
-
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return { ok: false, reason: 'no-permission' };
-
-  const reg = await navigator.serviceWorker.ready;
-  await reg.periodicSync.register(SYNC_TAG, { minInterval: SEVEN_DAYS });
-  localStorage.setItem('fl_backup_reminder', '1');
+  try { localStorage.setItem(FLAG_KEY, '1'); } catch {}
   return { ok: true };
 }
 
 export async function unregisterBackupReminder() {
-  localStorage.removeItem('fl_backup_reminder');
-  if (!('serviceWorker' in navigator)) return;
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    if ('periodicSync' in reg) await reg.periodicSync.unregister(SYNC_TAG);
-  } catch {}
+  try { localStorage.removeItem(FLAG_KEY); } catch {}
 }
 
 export async function isBackupReminderEnabled() {
-  if (!localStorage.getItem('fl_backup_reminder')) return false;
-  if (!('serviceWorker' in navigator)) return false;
+  try { return !!localStorage.getItem(FLAG_KEY); } catch { return false; }
+}
+
+/** Returns true if reminder is on and last backup was 7+ days ago (or never). */
+export function shouldShowBackupReminder() {
   try {
-    const reg = await navigator.serviceWorker.ready;
-    if (!('periodicSync' in reg)) return false;
-    const tags = await reg.periodicSync.getTags();
-    return tags.includes(SYNC_TAG);
+    if (!localStorage.getItem(FLAG_KEY)) return false;
+    const last = localStorage.getItem(BACKUP_KEY);
+    if (!last) return true;
+    return Date.now() - new Date(last).getTime() >= SEVEN_DAYS;
   } catch {
     return false;
   }

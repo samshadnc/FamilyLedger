@@ -17,6 +17,7 @@ import { LayoutDashboard, List, Plus, ChevronLeft, ChevronRight, BarChart2, Bell
 import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, CLOUDINARY_PRESET, SETTINGS_OWNER, UNBUDGETED_TAG } from './constants';
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
+import { shouldShowBackupReminder } from './utils/backupReminder';
 
 // Real October 2026 data imported from Axio (Samshad) + fake Sahla entries
 const DEMO_EXPENSES = [
@@ -491,6 +492,12 @@ export default function App() {
     try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
   });
 
+  // Backup reminder banner — shown once per session if reminder is on and 7+ days since last backup
+  const [showBackupBanner, setShowBackupBanner] = useState(false);
+  useEffect(() => {
+    if (shouldShowBackupReminder()) setShowBackupBanner(true);
+  }, []);
+
   // Other family members: start from accounts keys (always known), enrich with UIDs from history
   const otherMembers = useMemo(() => {
     if (!profile || !settings) return [];
@@ -637,6 +644,22 @@ export default function App() {
                 {name}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Backup reminder banner */}
+      {showBackupBanner && !isDemo && (
+        <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between shadow-md">
+          <span className="text-sm font-medium">💾 Back up your data — it's been 7+ days</span>
+          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+            <button
+              onClick={() => { setShowBackupBanner(false); showSettingsRef.current = true; setShowSettings(true); pushSubNav(); }}
+              className="text-xs font-bold bg-white text-amber-700 px-2.5 py-1 rounded-full"
+            >
+              Back up
+            </button>
+            <button onClick={() => setShowBackupBanner(false)} className="text-white opacity-80 text-lg leading-none">×</button>
           </div>
         </div>
       )}

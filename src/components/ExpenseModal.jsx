@@ -26,7 +26,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [platform,   setPlatform]   = useState(expense?.platform  ?? '');
   const [amount,     setAmount]     = useState(expense?.amount !== undefined ? Math.abs(expense.amount) : '');
   const [currency,   setCurrency]   = useState(expense?.currency ?? 'SGD');
-  const [category,   setCategory]   = useState(expense?.category ?? 'transport');
+  const [category,   setCategory]   = useState(expense?.category ?? 'food');
   const [account,    setAccount]    = useState(() => {
     if (expense?.account) return expense.account;
     const src = availableAccounts ?? ACCOUNTS;

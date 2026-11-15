@@ -50,7 +50,9 @@ Respond with ONLY a JSON object in this exact format, no markdown, no explanatio
       );
 
       if (!response.ok) {
-        lastError = `${model}: HTTP ${response.status}`;
+        const errBody = await response.text().catch(() => '');
+        lastError = `${model}: HTTP ${response.status} — ${errBody.slice(0, 200)}`;
+        console.error('[project-expense]', lastError);
         continue;
       }
 

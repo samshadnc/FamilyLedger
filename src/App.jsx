@@ -733,6 +733,7 @@ export default function App() {
             onPayeeSelect={handlePayeeSelect}
             allowEditOthers={settings.allowEditOthers}
             showInvestmentTile={settings.showInvestmentTile ?? false}
+            projectionModel={settings.projectionModel ?? 'statistical'}
             presets={settings.presets ?? DEFAULT_PRESETS}
             onPresetSave={handlePresetSave}
             accountMap={accountMap}

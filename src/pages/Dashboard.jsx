@@ -3,7 +3,7 @@ import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
 import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText, UNBUDGETED_TAG, isUnbudgeted } from '../constants';
 
-export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, presets, onPresetSave, accountMap }) {
+export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, projectionModel, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
   const [trendsMonth, setTrendsMonth] = useState(month);
   const [showSearch, setShowSearch] = useState(false);
@@ -105,6 +105,79 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       .map(([id, amount]) => ({ cat: getCategoryById(id), amount }));
     return { total, topCats };
   }, [showLastMonthBanner, allExpenses, lastMonthYM]);
+
+  // ── Expense projection ─────────────────────────────────
+  const statisticalProjection = useMemo(() => {
+    const [y, m] = month.split('-').map(Number);
+    const totalDays = new Date(y, m, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === y && today.getMonth() + 1 === m;
+    const daysElapsed = isCurrentMonth ? today.getDate() : totalDays;
+    if (daysElapsed === 0) return null;
+
+    const currentPace = (totalExpense / daysElapsed) * totalDays;
+
+    // Historical: average budgeted spend across last 6 months
+    const historicalTotals = [];
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(y, m - 1 - i);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const monthTotal = (allExpenses ?? [])
+        .filter(e => e.date.startsWith(ym) && e.type !== 'income' && e.type !== 'investment' && !isUnbudgeted(e))
+        .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
+      if (monthTotal > 0) historicalTotals.push(monthTotal);
+    }
+    const historicalAvg = historicalTotals.length > 0
+      ? historicalTotals.reduce((s, v) => s + v, 0) / historicalTotals.length
+      : currentPace;
+
+    const weight = daysElapsed / totalDays;
+    return weight * currentPace + (1 - weight) * historicalAvg;
+  }, [totalExpense, month, allExpenses]);
+
+  const [aiProjection, setAiProjection] = useState(null); // { projected, note } | null
+  const [aiLoading, setAiLoading] = useState(false);
+  const aiRequestRef = useRef(0);
+
+  useEffect(() => {
+    if ((projectionModel ?? 'statistical') !== 'ai') return;
+    const [y, m] = month.split('-').map(Number);
+    const totalDays = new Date(y, m, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === y && today.getMonth() + 1 === m;
+    const daysElapsed = isCurrentMonth ? today.getDate() : totalDays;
+
+    // Build past 6 months data
+    const pastMonths = [];
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(y, m - 1 - i);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const total = (allExpenses ?? [])
+        .filter(e => e.date.startsWith(ym) && e.type !== 'income' && e.type !== 'investment' && !isUnbudgeted(e))
+        .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
+      pastMonths.push({ month: ym, total });
+    }
+
+    const reqId = ++aiRequestRef.current;
+    setAiLoading(true);
+    setAiProjection(null);
+    fetch('/api/project-expense', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentSpend: totalExpense, daysElapsed, totalDays, pastMonths }),
+    })
+      .then(r => r.json())
+      .then(data => { if (reqId === aiRequestRef.current) setAiProjection(data); })
+      .catch(() => {})
+      .finally(() => { if (reqId === aiRequestRef.current) setAiLoading(false); });
+  }, [projectionModel, month, totalExpense, allExpenses]);
+
+  const projectedAmount = (projectionModel ?? 'statistical') === 'ai'
+    ? (aiProjection?.projected ?? null)
+    : statisticalProjection;
+  const projectionNote = (projectionModel ?? 'statistical') === 'ai'
+    ? (aiProjection?.note ?? null)
+    : null;
 
   // Category totals for the trends-selected month
   const trendsCategoryTotals = useMemo(() => {
@@ -392,6 +465,13 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
                   <div className="w-2 h-2 rounded-full bg-green-500" />
                   <p className="text-xs font-semibold text-gray-500">{pct.toFixed(0)}% of budget</p>
                 </div>
+                {aiLoading ? (
+                  <p className="text-[10px] text-indigo-400 mt-1.5">AI projecting…</p>
+                ) : projectedAmount != null ? (
+                  <p className="text-[10px] text-gray-400 mt-1.5" title={projectionNote ?? ''}>
+                    ↗ S${fmt(projectedAmount)} by EOM
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

@@ -359,6 +359,25 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
             <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${(settings.showInvestmentTile ?? false) ? 'translate-x-6' : 'translate-x-0.5'}`} />
           </button>
         </div>
+
+        <div className="px-5 py-4 border-t border-gray-50 flex items-center justify-between">
+          <div className="flex-1 mr-4">
+            <p className="text-sm font-bold text-gray-900">Expense Projection</p>
+            <p className="text-xs text-gray-400 mt-0.5">Model used to project end-of-month spend</p>
+          </div>
+          <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5">
+            {['statistical', 'ai'].map(model => {
+              const active = (settings.projectionModel ?? 'statistical') === model;
+              return (
+                <button
+                  key={model}
+                  onClick={() => onSave({ ...settings, projectionModel: model })}
+                  className={`text-[11px] font-semibold px-3 py-1 rounded-full transition-all capitalize ${active ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400'}`}
+                >{model === 'ai' ? 'AI' : 'Statistical'}</button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* ── Quick Presets ────────────────────────────── */}

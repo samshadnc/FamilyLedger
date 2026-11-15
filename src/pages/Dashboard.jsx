@@ -486,13 +486,13 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
           <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: 1 }}
                className={swipeDir === 'left' ? 'tab-exit-left' : 'tab-exit-right'}>
             {prevTab === 'transactions' && <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />}
-            {prevTab === 'trends' && <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />}
+            {prevTab === 'trends' && <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} onEdit={onEdit} accountMap={accountMap} />}
             {prevTab === 'categories' && <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />}
           </div>
         )}
         <div className={isTransitioning ? (swipeDir === 'left' ? 'tab-enter-right' : 'tab-enter-left') : ''}>
           {activeTab === 'transactions' && <TransactionsTab expenses={recentExpenses} byPerson={byPerson} myName={profile?.displayName} myUid={profile?.uid} allowEditOthers={allowEditOthers} onAdd={onAdd} onEdit={onEdit} onTagSelect={onTagSelect} onPayeeSelect={onPayeeSelect} presets={presets} onPresetSave={onPresetSave} accountMap={accountMap} />}
-          {activeTab === 'trends' && <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} />}
+          {activeTab === 'trends' && <TrendsTab allExpenses={allExpenses ?? []} currentMonth={month} selectedMonth={trendsMonth} onMonthSelect={setTrendsMonth} onEdit={onEdit} accountMap={accountMap} />}
           {activeTab === 'categories' && <CategoriesTab categoryTotals={categoryTotals} budget={safeBudget} categorySettings={categorySettings} onSelect={onCategorySelect} />}
         </div>
       </div>
@@ -652,8 +652,9 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
 }
 
 /* ── Trends tab ───────────────────────────────────────── */
-function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) {
+function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect, onEdit, accountMap }) {
   const [viewMode, setViewMode] = useState('budgeted'); // 'all' | 'budgeted'
+  const [selectedCategory, setSelectedCategory] = useState(null); // category id for drill-down sheet
 
   // Last 24 months oldest → newest
   const months = useMemo(() => {
@@ -786,7 +787,7 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
               const cat = getCategoryById(id);
               const pct = monthTotal > 0 ? (amount / monthTotal) * 100 : 0;
               return (
-                <div key={id} className="px-4 py-3 flex items-center gap-3">
+                <button key={id} onClick={() => setSelectedCategory(id)} className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                     style={{ background: cat.bg }}
@@ -803,7 +804,7 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
                     <p className="text-sm font-bold text-gray-900">S${fmt(amount)}</p>
                     <p className="text-xs text-gray-400">{pct.toFixed(0)}%</p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -815,6 +816,61 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
           <p className="text-sm">No data for {formatMonthFull(selectedMonth)}</p>
         </div>
       )}
+
+      {/* Category drill-down bottom sheet */}
+      {selectedCategory && (() => {
+        const cat = getCategoryById(selectedCategory);
+        const catExps = allExpenses
+          .filter(e => e.date.startsWith(selectedMonth) && e.category === selectedCategory &&
+            (viewMode === 'budgeted' ? isBudgeted(e) : e.type !== 'income'))
+          .sort((a, b) => b.date.localeCompare(a.date));
+        const catTotal = catExps.reduce((s, e) => s + sgdVal(e), 0);
+        return (
+          <>
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSelectedCategory(null)} />
+            <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 bg-white rounded-t-2xl shadow-xl" style={{ maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+              <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: cat.bg }}>{cat.icon}</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">{cat.label}</p>
+                    <p className="text-xs text-gray-400">{formatMonthFull(selectedMonth)} · {catExps.length} entries</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-base font-bold text-gray-900">S${fmt(catTotal)}</p>
+                  <button onClick={() => setSelectedCategory(null)} className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-y-auto divide-y divide-gray-50">
+                {catExps.length === 0 ? (
+                  <div className="py-10 text-center text-gray-400 text-sm">No entries</div>
+                ) : catExps.map(exp => {
+                  const isINR = exp.currency === 'INR';
+                  const brand = exp.account && accountMap?.[exp.account] ? getBankBrand(accountMap[exp.account]) : null;
+                  return (
+                    <button key={exp.id} onClick={() => { setSelectedCategory(null); onEdit?.(exp); }} className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50 hover:bg-gray-50 transition-colors">
+                      <div className="relative w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: cat.bg }}>
+                        {cat.icon}
+                        {brand?.logo && <img src={brand.logo} alt="" className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white object-contain p-0.5 shadow-sm" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{exp.payee || exp.note || cat.label}</p>
+                        <p className="text-[11px] text-gray-400">{exp.date} · {exp.addedByName}</p>
+                      </div>
+                      <p className="text-sm font-bold text-gray-900 flex-shrink-0">
+                        {isINR ? `₹${exp.amount.toFixed(2)}` : `S$${exp.amount.toFixed(2)}`}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

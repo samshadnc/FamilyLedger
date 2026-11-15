@@ -155,10 +155,10 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       }
     } catch {}
 
-    // Respect 429 backoff (2 minutes)
+    // Respect 429 backoff (1 hour)
     try {
       const backoff = JSON.parse(localStorage.getItem(lsBackoffKey) ?? 'null');
-      if (backoff?.ts && Date.now() - backoff.ts < 2 * 60 * 1000) return;
+      if (backoff?.ts && Date.now() - backoff.ts < 60 * 60 * 1000) return;
     } catch {}
 
     // Module-level guard: prevents concurrent fetches across remounts
@@ -214,7 +214,7 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
   }, [projectionModel, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const projectedAmount = (projectionModel ?? 'statistical') === 'ai'
-    ? (aiProjection?.projected ?? statisticalProjection)
+    ? (aiProjection?.projected ?? null)
     : statisticalProjection;
   const projectionNote = (projectionModel ?? 'statistical') === 'ai'
     ? (aiProjection?.note ?? null)

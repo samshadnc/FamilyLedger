@@ -2,11 +2,12 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
 import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText, UNBUDGETED_TAG, isUnbudgeted } from '../constants';
+import ExpenseModal from '../components/ExpenseModal';
 
 // Module-level guard: survives component remounts, prevents concurrent duplicate fetches
 let _aiProjectionFetchingMonth = null;
 
-export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, projectionModel, presets, onPresetSave, accountMap }) {
+export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, projectionModel, presets, onPresetSave, accountMap, recurringRules, onRecurringLogged, onSaveExpense }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
   const [trendsMonth, setTrendsMonth] = useState(month);
   const [showSearch, setShowSearch] = useState(false);
@@ -137,6 +138,18 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     const weight = daysElapsed / totalDays;
     return weight * currentPace + (1 - weight) * historicalAvg;
   }, [totalExpense, month, allExpenses]);
+
+  const [logRecurring, setLogRecurring] = useState(null);
+
+  const dueRecurring = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const soon = new Date(today); soon.setDate(soon.getDate() + 3);
+    return (recurringRules ?? []).filter(r => {
+      if (!r.nextDue) return false;
+      const due = new Date(r.nextDue + 'T00:00:00');
+      return due <= soon;
+    }).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+  }, [recurringRules]);
 
   const [aiProjection, setAiProjection] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -578,6 +591,65 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
             </div>
           </div>
         </button>
+      )}
+
+      {/* Recurring due banner */}
+      {dueRecurring.length > 0 && (
+        <div className="mx-4 mb-3">
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Due soon</p>
+          <div className="flex flex-col gap-2">
+            {dueRecurring.map(r => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const isToday = r.nextDue === todayStr;
+              const isPast = r.nextDue < todayStr;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => setLogRecurring(r)}
+                  className="w-full bg-white rounded-2xl shadow-sm text-left active:opacity-80 transition-opacity overflow-hidden"
+                >
+                  <div className="flex items-stretch">
+                    <div className={`w-1 flex-shrink-0 rounded-l-2xl ${isPast ? 'bg-red-400' : isToday ? 'bg-orange-400' : 'bg-indigo-400'}`} />
+                    <div className="flex-1 px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{r.payee}</p>
+                        <p className={`text-[11px] font-medium mt-0.5 ${isPast ? 'text-red-500' : isToday ? 'text-orange-500' : 'text-gray-400'}`}>
+                          {isPast ? 'Overdue' : isToday ? 'Due today' : `Due ${r.nextDue}`} · S${r.amount}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Log</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Log recurring expense modal */}
+      {logRecurring && (
+        <ExpenseModal
+          expense={{
+            amount: logRecurring.amount,
+            currency: logRecurring.currency ?? 'SGD',
+            category: logRecurring.category,
+            account: logRecurring.account,
+            payee: logRecurring.payee,
+            note: logRecurring.note ?? '',
+            date: new Date().toISOString().slice(0, 10),
+            type: 'expense',
+          }}
+          onSave={(data) => {
+            onSaveExpense(data);
+            onRecurringLogged(logRecurring.id);
+            setLogRecurring(null);
+          }}
+          onClose={() => setLogRecurring(null)}
+          profile={profile}
+          availableTags={[]}
+          quickPayees={[]}
+        />
       )}
 
       {/* Tabs */}

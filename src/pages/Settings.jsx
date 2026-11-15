@@ -55,7 +55,7 @@ function PresetFields({ value, onChange }) {
   );
 }
 
-export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone, scrollToBackup }) {
+export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone, scrollToBackup, recurringRules, onSaveRecurring, onDeleteRecurring }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(null); // person name or null
@@ -71,6 +71,8 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderStatus, setReminderStatus] = useState(null); // null | 'unsupported'
   useEffect(() => { isBackupReminderEnabled().then(setReminderEnabled); }, []);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState(null);
 
   const backupSectionRef = useRef(null);
   useEffect(() => {
@@ -799,6 +801,35 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         </div>
       )}
 
+      {/* ── Recurring Expenses ──────────────────────── */}
+      {!isDemo && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
+            <p className="text-sm font-bold text-gray-900">Recurring Expenses</p>
+            <button
+              onClick={() => { setEditingRecurring(null); setShowRecurringModal(true); }}
+              className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full active:opacity-70"
+            >+ Add</button>
+          </div>
+          {(recurringRules ?? []).length === 0 ? (
+            <div className="px-5 py-4 text-sm text-gray-400">No recurring expenses set up.</div>
+          ) : (
+            (recurringRules ?? []).map(r => (
+              <div key={r.id} className="px-5 py-3 border-t border-gray-50 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{r.payee}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{r.currency ?? 'SGD'} {r.amount} · {r.frequency} · next {r.nextDue}</p>
+                </div>
+                <button
+                  onClick={() => { setEditingRecurring(r); setShowRecurringModal(true); }}
+                  className="text-xs text-indigo-500 font-medium px-3 py-1 rounded-full hover:bg-indigo-50"
+                >Edit</button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {/* ── Logout ───────────────────────────────────── */}
       {!isDemo && (
         <div className="mx-4 mb-6">
@@ -810,6 +841,97 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
             Sign Out
           </button>
         </div>
+      )}
+
+      {/* Recurring rule editor modal */}
+      {showRecurringModal && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }}>
+          <div className="w-full bg-white rounded-t-3xl p-5 pb-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-gray-900">{editingRecurring?.id ? 'Edit Recurring' : 'New Recurring'}</h2>
+              <button onClick={() => setShowRecurringModal(false)} className="text-gray-400"><X size={20} /></button>
+            </div>
+            <RecurringForm
+              initial={editingRecurring}
+              onSave={(rule) => { onSaveRecurring(rule); setShowRecurringModal(false); }}
+              onDelete={editingRecurring?.id ? () => { onDeleteRecurring(editingRecurring.id); setShowRecurringModal(false); } : null}
+              onCancel={() => setShowRecurringModal(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecurringForm({ initial, onSave, onDelete, onCancel }) {
+  const [payee, setPayee] = useState(initial?.payee ?? '');
+  const [amount, setAmount] = useState(initial?.amount ?? '');
+  const [currency, setCurrency] = useState(initial?.currency ?? 'SGD');
+  const [category, setCategory] = useState(initial?.category ?? 'food');
+  const [frequency, setFrequency] = useState(initial?.frequency ?? 'monthly');
+  const [nextDue, setNextDue] = useState(initial?.nextDue ?? new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState(initial?.note ?? '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inputCls = 'w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white';
+
+  const handleSubmit = () => {
+    if (!payee.trim() || !amount) return;
+    onSave({ ...(initial ?? {}), payee: payee.trim(), amount: parseFloat(amount), currency, category, frequency, nextDue, note: note.trim() });
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Payee</label>
+        <input value={payee} onChange={e => setPayee(e.target.value)} placeholder="e.g. Rent" className={inputCls} />
+      </div>
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Amount</label>
+          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={inputCls} />
+        </div>
+        <div className="w-28">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Currency</label>
+          <select value={currency} onChange={e => setCurrency(e.target.value)} className={inputCls}>
+            {['SGD', 'MYR', 'INR', 'USD'].map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Category</label>
+        <select value={category} onChange={e => setCategory(e.target.value)} className={inputCls}>
+          {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+        </select>
+      </div>
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Frequency</label>
+          <select value={frequency} onChange={e => setFrequency(e.target.value)} className={inputCls}>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Next due</label>
+          <input type="date" value={nextDue} onChange={e => setNextDue(e.target.value)} className={inputCls} />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Note <span className="normal-case font-normal text-gray-300">(optional)</span></label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Paid via GIRO" className={inputCls} />
+      </div>
+      <button onClick={handleSubmit} className="w-full bg-indigo-600 text-white font-bold rounded-xl py-3 text-sm mt-1">Save</button>
+      {onDelete && (
+        confirmDelete ? (
+          <div className="flex gap-2">
+            <button onClick={onCancel} className="flex-1 bg-gray-100 text-gray-700 font-bold rounded-xl py-3 text-sm">Cancel</button>
+            <button onClick={onDelete} className="flex-1 bg-red-500 text-white font-bold rounded-xl py-3 text-sm">Yes, Delete</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} className="w-full text-red-500 font-semibold text-sm py-2">Delete recurring rule</button>
+        )
       )}
     </div>
   );

@@ -487,6 +487,46 @@ export default function App() {
     return () => { unsub(); clearTimeout(toastTimerRef.current); };
   }, [user, isDemo]);
 
+  // Recurring expense rules
+  const [recurringRules, setRecurringRules] = useState([]);
+  useEffect(() => {
+    if (isDemo || !user) return;
+    const unsub = onSnapshot(collection(db, 'recurring'), snap => {
+      setRecurringRules(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+    }, err => console.error('Recurring listener error:', err));
+    return unsub;
+  }, [user, isDemo]);
+
+  const advanceNextDue = (rule) => {
+    const d = new Date(rule.nextDue + 'T00:00:00');
+    if (rule.frequency === 'weekly') d.setDate(d.getDate() + 7);
+    else if (rule.frequency === 'yearly') d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const handleSaveRecurring = async (rule) => {
+    if (isDemo) return;
+    if (rule.id) {
+      const { id, ...data } = rule;
+      await updateDoc(doc(db, 'recurring', id), data);
+    } else {
+      await addDoc(collection(db, 'recurring'), rule);
+    }
+  };
+
+  const handleDeleteRecurring = async (id) => {
+    if (isDemo) return;
+    await deleteDoc(doc(db, 'recurring', id));
+  };
+
+  const handleRecurringLogged = async (ruleId) => {
+    if (isDemo) return;
+    const rule = recurringRules.find(r => r.id === ruleId);
+    if (!rule) return;
+    await updateDoc(doc(db, 'recurring', ruleId), { nextDue: advanceNextDue(rule) });
+  };
+
   // Last backup date — read from localStorage, updated when the user manually backs up
   const [lastBackupDate, setLastBackupDate] = useState(() => {
     try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
@@ -731,6 +771,9 @@ export default function App() {
             lastBackupDate={lastBackupDate}
             onBackupDone={(ts) => setLastBackupDate(ts)}
             scrollToBackup={openedFromBackupBanner.current}
+            recurringRules={recurringRules}
+            onSaveRecurring={handleSaveRecurring}
+            onDeleteRecurring={handleDeleteRecurring}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail
@@ -763,6 +806,9 @@ export default function App() {
             presets={settings.presets ?? DEFAULT_PRESETS}
             onPresetSave={handlePresetSave}
             accountMap={accountMap}
+            recurringRules={recurringRules}
+            onRecurringLogged={handleRecurringLogged}
+            onSaveExpense={handleSave}
           />
         ) : tab === 'analytics' ? (
           <Analytics

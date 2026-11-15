@@ -357,7 +357,7 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
         </button>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => { setShowShoppingList(true); setTimeout(() => shoppingInputRef.current?.focus(), 100); }}
+            onClick={() => setShowShoppingList(true)}
             className="relative w-10 h-10 flex items-center justify-center rounded-full text-gray-600 transition-colors"
           >
             <ShoppingCart size={21} />

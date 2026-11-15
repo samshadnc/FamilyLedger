@@ -516,18 +516,32 @@ export default function App() {
   const quickPayees = useMemo(() => {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 3);
-    const cutoffStr = cutoff.toISOString().slice(0, 7); // 'YYYY-MM'
-    const freq = {};
+    const cutoffStr = cutoff.toISOString().slice(0, 7);
+    const freq = {};      // payee -> total count
+    const catFreq = {};   // payee -> { category -> count }
+    const catLast = {};   // payee -> { category -> latest date }
     for (const exp of allExpenses ?? []) {
-      if (!exp.payee || !exp.date) continue;
+      if (!exp.payee || !exp.date || exp.type !== 'expense') continue;
       if (exp.date.slice(0, 7) < cutoffStr) continue;
       const key = exp.payee.trim();
-      if (!key) continue;
+      if (!key || !exp.category) continue;
       freq[key] = (freq[key] ?? 0) + 1;
+      catFreq[key] = catFreq[key] ?? {};
+      catFreq[key][exp.category] = (catFreq[key][exp.category] ?? 0) + 1;
+      catLast[key] = catLast[key] ?? {};
+      if (!catLast[key][exp.category] || exp.date > catLast[key][exp.category])
+        catLast[key][exp.category] = exp.date;
     }
+    // Build sorted list of { name, category } — category = most frequent, tie-broken by recency
     return Object.entries(freq)
       .sort((a, b) => b[1] - a[1])
-      .map(([name]) => name);
+      .map(([name]) => {
+        const cats = catFreq[name] ?? {};
+        const topCat = Object.entries(cats).sort((a, b) =>
+          b[1] - a[1] || (catLast[name][b[0]] > catLast[name][a[0]] ? 1 : -1)
+        )[0]?.[0] ?? null;
+        return { name, category: topCat };
+      });
   }, [allExpenses]);
 
   const handleSave = async (data) => {

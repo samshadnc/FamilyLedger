@@ -27,6 +27,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [amount,     setAmount]     = useState(expense?.amount !== undefined ? Math.abs(expense.amount) : '');
   const [currency,   setCurrency]   = useState(expense?.currency ?? 'SGD');
   const [category,   setCategory]   = useState(expense?.category ?? 'food');
+  const categoryManuallySetRef = useRef(!!expense?.category);
   const [account,    setAccount]    = useState(() => {
     if (expense?.account) return expense.account;
     const src = availableAccounts ?? ACCOUNTS;
@@ -417,7 +418,7 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => !readOnly && (setCategory(cat.id), setErrors(e => ({ ...e, category: undefined })))}
+                    onClick={() => !readOnly && (categoryManuallySetRef.current = true, setCategory(cat.id), setErrors(e => ({ ...e, category: undefined })))}
                     className={`flex-shrink-0 flex flex-col items-center gap-1 w-14 py-2 rounded-xl border-2 transition-all ${
                       category === cat.id
                         ? 'border-indigo-500 bg-indigo-50'
@@ -472,17 +473,25 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
             />
             {showPayeeSuggestions && !readOnly && (() => {
               const q = payee.trim().toLowerCase();
-              const matches = (quickPayees ?? []).filter(p => p.toLowerCase().includes(q) && p !== payee);
+              const matches = (quickPayees ?? []).filter(p => p.name.toLowerCase().includes(q) && p.name !== payee);
               return matches.length > 0 ? (
                 <ul className="absolute z-30 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-44 overflow-y-auto">
                   {matches.slice(0, 8).map(p => (
-                    <li key={p}>
+                    <li key={p.name}>
                       <button
                         type="button"
-                        onMouseDown={e => { e.preventDefault(); setPayee(p); setShowPayeeSuggestions(false); }}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          setPayee(p.name);
+                          if (!categoryManuallySetRef.current && p.category && type === 'expense') {
+                            setCategory(p.category);
+                            setErrors(err => ({ ...err, category: undefined }));
+                          }
+                          setShowPayeeSuggestions(false);
+                        }}
                         className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 first:rounded-t-xl last:rounded-b-xl"
                       >
-                        {p}
+                        {p.name}
                       </button>
                     </li>
                   ))}

@@ -527,6 +527,48 @@ export default function App() {
     await updateDoc(doc(db, 'recurring', ruleId), { nextDue: advanceNextDue(rule) });
   };
 
+  // Shopping list — shared in Firestore under household/shoppingList
+  const [shoppingItems, setShoppingItems] = useState([]);
+  useEffect(() => {
+    if (isDemo || !user) return;
+    const ref = doc(db, 'household', 'shoppingList');
+    const unsub = onSnapshot(ref, snap => {
+      setShoppingItems(snap.exists() ? (snap.data().items ?? []) : []);
+    });
+    return unsub;
+  }, [user, isDemo]);
+
+  const shoppingListRef = doc(db, 'household', 'shoppingList');
+
+  const handleAddShoppingItem = async (text, profile) => {
+    if (isDemo) return;
+    const item = { id: Date.now().toString(), text, checked: false, addedBy: profile?.uid ?? '', addedByName: profile?.displayName ?? '' };
+    const next = [...shoppingItems, item];
+    setShoppingItems(next);
+    await setDoc(shoppingListRef, { items: next }, { merge: true });
+  };
+
+  const handleToggleShoppingItem = async (id, checked) => {
+    if (isDemo) return;
+    const next = shoppingItems.map(i => i.id === id ? { ...i, checked: !checked } : i);
+    setShoppingItems(next);
+    await setDoc(shoppingListRef, { items: next }, { merge: true });
+  };
+
+  const handleDeleteShoppingItem = async (id) => {
+    if (isDemo) return;
+    const next = shoppingItems.filter(i => i.id !== id);
+    setShoppingItems(next);
+    await setDoc(shoppingListRef, { items: next }, { merge: true });
+  };
+
+  const handleClearShoppingChecked = async () => {
+    if (isDemo) return;
+    const next = shoppingItems.filter(i => !i.checked);
+    setShoppingItems(next);
+    await setDoc(shoppingListRef, { items: next }, { merge: true });
+  };
+
   // Last backup date — read from localStorage, updated when the user manually backs up
   const [lastBackupDate, setLastBackupDate] = useState(() => {
     try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
@@ -809,6 +851,11 @@ export default function App() {
             recurringRules={recurringRules}
             onRecurringLogged={handleRecurringLogged}
             onSaveExpense={handleSave}
+            shoppingItems={shoppingItems}
+            onAddShoppingItem={handleAddShoppingItem}
+            onToggleShoppingItem={handleToggleShoppingItem}
+            onDeleteShoppingItem={handleDeleteShoppingItem}
+            onClearShoppingChecked={handleClearShoppingChecked}
           />
         ) : tab === 'analytics' ? (
           <Analytics

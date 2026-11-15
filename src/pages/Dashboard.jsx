@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
+import { Search, Plus, ChevronRight, X, TrendingUp, ShoppingCart, Check, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
 import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText, UNBUDGETED_TAG, isUnbudgeted } from '../constants';
 import ExpenseModal from '../components/ExpenseModal';
@@ -7,12 +7,16 @@ import ExpenseModal from '../components/ExpenseModal';
 // Module-level guard: survives component remounts, prevents concurrent duplicate fetches
 let _aiProjectionFetchingMonth = null;
 
-export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, projectionModel, presets, onPresetSave, accountMap, recurringRules, onRecurringLogged, onSaveExpense }) {
+export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, projectionModel, presets, onPresetSave, accountMap, recurringRules, onRecurringLogged, onSaveExpense, shoppingItems, onAddShoppingItem, onToggleShoppingItem, onDeleteShoppingItem, onClearShoppingChecked }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
   const [trendsMonth, setTrendsMonth] = useState(month);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef(null);
+  const [showShoppingList, setShowShoppingList] = useState(false);
+  const [newItem, setNewItem] = useState('');
+  const shoppingInputRef = useRef(null);
+  const uncheckedCount = (shoppingItems ?? []).filter(i => !i.checked).length;
 
   const {
     totalExpense, totalIncome, investmentTotal, byCategoryByCur,
@@ -351,12 +355,25 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
             <p className="text-lg font-bold text-gray-900 leading-tight">{profile?.displayName ?? 'User'}</p>
           </div>
         </button>
-        <button
-          onClick={() => { setShowSearch(s => !s); setSearchQuery(''); }}
-          className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600'}`}
-        >
-          {showSearch ? <X size={20} /> : <Search size={22} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { setShowShoppingList(true); setTimeout(() => shoppingInputRef.current?.focus(), 100); }}
+            className="relative w-10 h-10 flex items-center justify-center rounded-full text-gray-600 transition-colors"
+          >
+            <ShoppingCart size={21} />
+            {uncheckedCount > 0 && (
+              <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                {uncheckedCount > 9 ? '9+' : uncheckedCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setShowSearch(s => !s); setSearchQuery(''); }}
+            className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600'}`}
+          >
+            {showSearch ? <X size={20} /> : <Search size={22} />}
+          </button>
+        </div>
       </div>
 
       {/* Search bar */}
@@ -650,6 +667,79 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
           availableTags={[]}
           quickPayees={[]}
         />
+      )}
+
+      {/* Shopping List bottom sheet */}
+      {showShoppingList && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowShoppingList(false)}>
+          <div className="w-full bg-white rounded-t-3xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+            </div>
+            {/* Header */}
+            <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={18} className="text-indigo-500" />
+                <h2 className="text-base font-bold text-gray-900">Shopping List</h2>
+                {uncheckedCount > 0 && <span className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">{uncheckedCount} left</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                {(shoppingItems ?? []).some(i => i.checked) && (
+                  <button onClick={onClearShoppingChecked} className="text-xs text-gray-400 font-medium">Clear done</button>
+                )}
+                <button onClick={() => setShowShoppingList(false)} className="text-gray-400 w-8 h-8 flex items-center justify-center">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            {/* Add item input */}
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex gap-2">
+                <input
+                  ref={shoppingInputRef}
+                  value={newItem}
+                  onChange={e => setNewItem(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && newItem.trim()) { onAddShoppingItem(newItem.trim(), profile); setNewItem(''); } }}
+                  placeholder="Add item…"
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                  onClick={() => { if (newItem.trim()) { onAddShoppingItem(newItem.trim(), profile); setNewItem(''); } }}
+                  className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center flex-shrink-0"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+            </div>
+            {/* Items list */}
+            <div className="overflow-y-auto flex-1 px-4 py-2 pb-6">
+              {(shoppingItems ?? []).length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Nothing here yet — add your first item above</p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {(shoppingItems ?? []).map(item => (
+                    <li key={item.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                      <button
+                        onClick={() => onToggleShoppingItem(item.id, item.checked)}
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${item.checked ? 'bg-indigo-500 border-indigo-500' : 'border-gray-300'}`}
+                      >
+                        {item.checked && <Check size={12} className="text-white" strokeWidth={3} />}
+                      </button>
+                      <span className={`flex-1 text-sm ${item.checked ? 'line-through text-gray-400' : 'text-gray-900'}`}>{item.text}</span>
+                      {item.addedByName && item.addedByName !== profile?.displayName && (
+                        <span className="text-[10px] text-gray-400">{item.addedByName}</span>
+                      )}
+                      <button onClick={() => onDeleteShoppingItem(item.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+                        <Trash2 size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tabs */}

@@ -214,7 +214,7 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
   }, [projectionModel, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const projectedAmount = (projectionModel ?? 'statistical') === 'ai'
-    ? (aiProjection?.projected ?? null)
+    ? (aiProjection?.projected ?? statisticalProjection)
     : statisticalProjection;
   const projectionNote = (projectionModel ?? 'statistical') === 'ai'
     ? (aiProjection?.note ?? null)

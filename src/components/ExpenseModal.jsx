@@ -720,6 +720,12 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
             <input ref={galleryRef} type="file" accept="image/*"                        className="hidden" onChange={handleFile} />
           </div>
 
+          {editing && expense?.editedByName && (
+            <p className="text-center text-[11px] text-gray-400 -mt-1 mb-1">
+              Last edited by <span className="font-medium text-gray-500">{expense.editedByName}</span>
+            </p>
+          )}
+
           {readOnly ? (
             <button
               type="button"

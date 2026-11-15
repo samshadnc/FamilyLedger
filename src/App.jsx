@@ -565,7 +565,12 @@ export default function App() {
     if (editTarget) {
       // Editing: preserve original author — only update the fields that changed
       const { addedBy: _a, addedByName: _b, ...rest } = data;
-      await updateDoc(doc(db, 'expenses', editTarget.id), { ...rest, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'expenses', editTarget.id), {
+        ...rest,
+        editedBy: profile.uid,
+        editedByName: profile.displayName,
+        updatedAt: serverTimestamp(),
+      });
     } else {
       // New entry: set author (proxy user if set, else current user)
       const payload = {
@@ -589,7 +594,12 @@ export default function App() {
   const handleAutoSave = async (data) => {
     if (!profile || !editTarget || isDemo) return;
     const { addedBy: _a, addedByName: _b, ...rest } = data;
-    await updateDoc(doc(db, 'expenses', editTarget.id), { ...rest, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'expenses', editTarget.id), {
+      ...rest,
+      editedBy: profile.uid,
+      editedByName: profile.displayName,
+      updatedAt: serverTimestamp(),
+    });
   };
 
   const openAdd  = () => { setEditTarget(null); showModalRef.current = true; setShowModal(true); pushSubNav(); };

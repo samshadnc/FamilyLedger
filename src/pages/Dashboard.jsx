@@ -3,6 +3,9 @@ import { Search, Plus, ChevronRight, X, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell, PieChart, Pie } from 'recharts';
 import { getCategoryById, CURRENCIES, AVATARS, getBankBrand, presetButtonText, UNBUDGETED_TAG, isUnbudgeted } from '../constants';
 
+// Module-level guard: survives component remounts, prevents concurrent duplicate fetches
+let _aiProjectionFetchingMonth = null;
+
 export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit, profile, budget, categorySettings, memberNames, onCategorySelect, onOpenSettings, onTagSelect, onPayeeSelect, allowEditOthers, showInvestmentTile, projectionModel, presets, onPresetSave, accountMap }) {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'trends' | 'categories'
   const [trendsMonth, setTrendsMonth] = useState(month);
@@ -137,13 +140,13 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
   const [aiProjection, setAiProjection] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const aiFetchingMonthRef = useRef(null); // tracks which month is currently being fetched
-
   useEffect(() => {
     if ((projectionModel ?? 'statistical') !== 'ai') { setAiProjection(null); return; }
 
-    // Check localStorage cache — only re-fetch if older than 6 hours
     const lsKey = `fl_ai_proj_${month}`;
+    const lsBackoffKey = `fl_ai_backoff_${month}`;
+
+    // Serve from cache if fresh (< 6 hours)
     try {
       const cached = JSON.parse(localStorage.getItem(lsKey) ?? 'null');
       if (cached?.projected && Date.now() - (cached.ts ?? 0) < 6 * 60 * 60 * 1000) {
@@ -152,8 +155,15 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       }
     } catch {}
 
-    if (aiFetchingMonthRef.current === month) return; // already fetching this month
-    aiFetchingMonthRef.current = month;
+    // Respect 429 backoff (2 minutes)
+    try {
+      const backoff = JSON.parse(localStorage.getItem(lsBackoffKey) ?? 'null');
+      if (backoff?.ts && Date.now() - backoff.ts < 2 * 60 * 1000) return;
+    } catch {}
+
+    // Module-level guard: prevents concurrent fetches across remounts
+    if (_aiProjectionFetchingMonth === month) return;
+    _aiProjectionFetchingMonth = month;
 
     const [y, m] = month.split('-').map(Number);
     const totalDays = new Date(y, m, 0).getDate();
@@ -190,9 +200,16 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
         const clean = text.replace(/```[a-z]*\n?/g, '').trim();
         const result = { ...JSON.parse(clean), ts: Date.now() };
         try { localStorage.setItem(lsKey, JSON.stringify(result)); } catch {}
+        _aiProjectionFetchingMonth = null;
         setAiProjection(result);
       })
-      .catch(err => { console.error('[AI projection]', err.message); })
+      .catch(err => {
+        console.error('[AI projection]', err.message);
+        if (err.message.includes('429')) {
+          try { localStorage.setItem(lsBackoffKey, JSON.stringify({ ts: Date.now() })); } catch {}
+        }
+        _aiProjectionFetchingMonth = null; // allow retry after backoff
+      })
       .finally(() => { setAiLoading(false); });
   }, [projectionModel, month]); // eslint-disable-line react-hooks/exhaustive-deps
 

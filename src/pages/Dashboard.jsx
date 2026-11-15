@@ -135,21 +135,32 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     return weight * currentPace + (1 - weight) * historicalAvg;
   }, [totalExpense, month, allExpenses]);
 
-  const [aiProjection, setAiProjection] = useState(null); // { projected, note } | null
+  const [aiProjection, setAiProjection] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const aiRequestRef = useRef(0);
-  const aiCacheRef = useRef({}); // { [month+model]: result }
+  const aiFetchedRef = useRef(false); // prevent double-fetch within same mount
 
   useEffect(() => {
-    console.log('[AI projection] model:', projectionModel);
-    if ((projectionModel ?? 'statistical') !== 'ai') return;
+    if ((projectionModel ?? 'statistical') !== 'ai') { setAiProjection(null); return; }
+
+    // Check localStorage cache — only re-fetch if older than 6 hours or different day
+    const lsKey = `fl_ai_proj_${month}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(lsKey) ?? 'null');
+      if (cached?.projected && Date.now() - (cached.ts ?? 0) < 6 * 60 * 60 * 1000) {
+        setAiProjection(cached);
+        return;
+      }
+    } catch {}
+
+    if (aiFetchedRef.current) return; // already fetching this mount
+    aiFetchedRef.current = true;
+
     const [y, m] = month.split('-').map(Number);
     const totalDays = new Date(y, m, 0).getDate();
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === y && today.getMonth() + 1 === m;
     const daysElapsed = isCurrentMonth ? today.getDate() : totalDays;
 
-    // Build past 6 months data
     const pastMonths = [];
     for (let i = 1; i <= 6; i++) {
       const d = new Date(y, m - 1 - i);
@@ -160,59 +171,26 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       pastMonths.push({ month: ym, total });
     }
 
-    // Return cached result for this month+model without re-fetching
-    const cacheKey = `${month}:${projectionModel}`;
-    if (aiCacheRef.current[cacheKey]) {
-      setAiProjection(aiCacheRef.current[cacheKey]);
-      return;
-    }
-
-    const reqId = ++aiRequestRef.current;
     setAiLoading(true);
-    setAiProjection(null);
-
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const historyLines = pastMonths.map(({ month: m, total }) => `  ${m}: S$${total.toFixed(2)}`).join('\n');
-    const prompt = `You are a personal finance assistant. Based on the data below, predict the total budgeted expense for the current month (excludes investments, income, unbudgeted items).
+    const historyLines = pastMonths.map(({ month: pm, total }) => `  ${pm}: S$${total.toFixed(2)}`).join('\n');
+    const prompt = `Personal finance assistant. Predict total budgeted expense for current month (excludes investments, income, unbudgeted items).
+Days elapsed: ${daysElapsed}/${totalDays}. Spent so far: S$${totalExpense.toFixed(2)}.
+Past months: ${historyLines || 'none'}.
+Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
 
-Current month:
-- Days elapsed: ${daysElapsed} of ${totalDays}
-- Spent so far: S$${totalExpense.toFixed(2)}
-
-Past months (budgeted spend):
-${historyLines || '  No history'}
-
-Respond ONLY with JSON (no markdown): {"projected": <number>, "note": "<max 60 char reason>"}`;
-
-    const tryGemini = async (retries = 2) => {
-      for (let attempt = 0; attempt <= retries; attempt++) {
-        const r = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 128 } }),
-          }
-        );
-        if ((r.status === 503 || r.status === 429) && attempt < retries) {
-          await new Promise(res => setTimeout(res, 3000 * (attempt + 1)));
-          continue;
-        }
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
+    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 100 } }),
+    })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(data => {
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
         const clean = text.replace(/```[a-z]*\n?/g, '').trim();
-        return JSON.parse(clean);
-      }
-      throw new Error('All retries failed');
-    };
-
-    tryGemini()
-      .then(data => {
-        if (reqId === aiRequestRef.current) {
-          aiCacheRef.current[cacheKey] = data;
-          setAiProjection(data);
-        }
+        const result = { ...JSON.parse(clean), ts: Date.now() };
+        try { localStorage.setItem(lsKey, JSON.stringify(result)); } catch {}
+        setAiProjection(result);
       })
       .catch(err => { console.error('[AI projection]', err.message); })
       .finally(() => { setAiLoading(false); });

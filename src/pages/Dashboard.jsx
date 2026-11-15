@@ -162,10 +162,13 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     const reqId = ++aiRequestRef.current;
     setAiLoading(true);
     setAiProjection(null);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
     fetch('/api/project-expense', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentSpend: totalExpense, daysElapsed, totalDays, pastMonths }),
+      signal: controller.signal,
     })
       .then(r => r.json())
       .then(data => {
@@ -175,8 +178,8 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         }
       })
       .catch(err => { console.error('[AI projection fetch]', err); })
-      .finally(() => { if (reqId === aiRequestRef.current) setAiLoading(false); });
-  }, [projectionModel, month, totalExpense, allExpenses]);
+      .finally(() => { clearTimeout(timer); setAiLoading(false); });
+  }, [projectionModel, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const projectedAmount = (projectionModel ?? 'statistical') === 'ai'
     ? (aiProjection?.projected ?? null)

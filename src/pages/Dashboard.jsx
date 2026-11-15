@@ -162,23 +162,47 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
     const reqId = ++aiRequestRef.current;
     setAiLoading(true);
     setAiProjection(null);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-    fetch('/api/project-expense', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentSpend: totalExpense, daysElapsed, totalDays, pastMonths }),
-      signal: controller.signal,
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (reqId === aiRequestRef.current) {
-          if (data.error) console.error('[AI projection]', data.error);
-          setAiProjection(data);
+
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const historyLines = pastMonths.map(({ month: m, total }) => `  ${m}: S$${total.toFixed(2)}`).join('\n');
+    const prompt = `You are a personal finance assistant. Based on the data below, predict the total budgeted expense for the current month (excludes investments, income, unbudgeted items).
+
+Current month:
+- Days elapsed: ${daysElapsed} of ${totalDays}
+- Spent so far: S$${totalExpense.toFixed(2)}
+
+Past months (budgeted spend):
+${historyLines || '  No history'}
+
+Respond ONLY with JSON (no markdown): {"projected": <number>, "note": "<max 60 char reason>"}`;
+
+    const tryGemini = async (retries = 2) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 128 } }),
+          }
+        );
+        if (r.status === 503 && attempt < retries) {
+          await new Promise(res => setTimeout(res, 2000 * (attempt + 1)));
+          continue;
         }
-      })
-      .catch(err => { console.error('[AI projection fetch]', err); })
-      .finally(() => { clearTimeout(timer); setAiLoading(false); });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        const clean = text.replace(/```[a-z]*\n?/g, '').trim();
+        return JSON.parse(clean);
+      }
+      throw new Error('All retries failed');
+    };
+
+    tryGemini()
+      .then(data => { if (reqId === aiRequestRef.current) setAiProjection(data); })
+      .catch(err => { console.error('[AI projection]', err.message); })
+      .finally(() => { setAiLoading(false); });
   }, [projectionModel, month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const projectedAmount = (projectionModel ?? 'statistical') === 'ai'

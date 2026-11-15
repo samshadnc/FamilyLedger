@@ -167,8 +167,13 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       body: JSON.stringify({ currentSpend: totalExpense, daysElapsed, totalDays, pastMonths }),
     })
       .then(r => r.json())
-      .then(data => { if (reqId === aiRequestRef.current) setAiProjection(data); })
-      .catch(() => {})
+      .then(data => {
+        if (reqId === aiRequestRef.current) {
+          if (data.error) console.error('[AI projection]', data.error);
+          setAiProjection(data);
+        }
+      })
+      .catch(err => { console.error('[AI projection fetch]', err); })
       .finally(() => { if (reqId === aiRequestRef.current) setAiLoading(false); });
   }, [projectionModel, month, totalExpense, allExpenses]);
 

@@ -32,7 +32,7 @@ ${historyLines || '  No history available'}
 Respond with ONLY a JSON object in this exact format, no markdown, no explanation:
 {"projected": <number>, "note": "<one short sentence reason, max 60 chars>"}`;
 
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const models = ['gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
   let lastError;
 
   for (const model of models) {

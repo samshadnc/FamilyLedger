@@ -653,7 +653,9 @@ function TransactionsTab({ expenses, byPerson, myName, myUid, allowEditOthers, o
 
 /* ── Trends tab ───────────────────────────────────────── */
 function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) {
-  // Last 12 months oldest → newest
+  const [viewMode, setViewMode] = useState('budgeted'); // 'all' | 'budgeted'
+
+  // Last 24 months oldest → newest
   const months = useMemo(() => {
     const result = [];
     const [y, m] = currentMonth.split('-').map(Number);
@@ -664,27 +666,29 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
     return result;
   }, [currentMonth]);
 
-
   const sgdVal = (e) => e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0);
+
+  const isBudgeted = (e) =>
+    e.type !== 'income' && e.type !== 'investment' && !isUnbudgeted(e) && sgdVal(e) > 0;
 
   // Monthly totals (all currencies, using sgdAmount for INR)
   const monthlyTotals = useMemo(() => {
     return months.reduce((acc, ym) => {
       acc[ym] = allExpenses
-        .filter(e => e.date.startsWith(ym) && e.type !== 'income')
+        .filter(e => e.date.startsWith(ym) && (viewMode === 'budgeted' ? isBudgeted(e) : e.type !== 'income'))
         .reduce((s, e) => s + sgdVal(e), 0);
       return acc;
     }, {});
-  }, [allExpenses, months]);
+  }, [allExpenses, months, viewMode]);
 
   // Category breakdown for selected month
   const categoryBreakdown = useMemo(() => {
     const map = {};
     allExpenses
-      .filter(e => e.date.startsWith(selectedMonth) && e.type !== 'income')
+      .filter(e => e.date.startsWith(selectedMonth) && (viewMode === 'budgeted' ? isBudgeted(e) : e.type !== 'income'))
       .forEach(e => { map[e.category] = (map[e.category] ?? 0) + sgdVal(e); });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([id, amount]) => ({ id, amount }));
-  }, [allExpenses, selectedMonth]);
+  }, [allExpenses, selectedMonth, viewMode]);
 
   const monthTotal = monthlyTotals[selectedMonth] ?? 0;
   const maxTotal = Math.max(...Object.values(monthlyTotals), 1);
@@ -716,7 +720,21 @@ function TrendsTab({ allExpenses, currentMonth, selectedMonth, onMonthSelect }) 
       {/* Monthly bar chart */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="px-5 pt-4 pb-2">
-          <p className="text-xs text-gray-400 font-medium">Total · {formatMonthFull(selectedMonth)}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-400 font-medium">
+              {viewMode === 'budgeted' ? 'Budgeted' : 'Total'} · {formatMonthFull(selectedMonth)}
+            </p>
+            <div className="flex items-center bg-gray-100 rounded-full p-0.5 gap-0.5">
+              <button
+                onClick={() => setViewMode('all')}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all ${viewMode === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400'}`}
+              >All</button>
+              <button
+                onClick={() => setViewMode('budgeted')}
+                className={`text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all ${viewMode === 'budgeted' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400'}`}
+              >Budgeted</button>
+            </div>
+          </div>
           <p className="text-2xl font-bold text-gray-900">S${fmt(monthTotal)}</p>
         </div>
 

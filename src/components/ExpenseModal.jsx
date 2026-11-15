@@ -28,6 +28,12 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
   const [currency,   setCurrency]   = useState(expense?.currency ?? 'SGD');
   const [category,   setCategory]   = useState(expense?.category ?? 'food');
   const categoryManuallySetRef = useRef(!!expense?.category);
+  const categoryRowRef = useRef(null);
+
+  useEffect(() => {
+    const el = categoryRowRef.current?.querySelector(`[data-cat-id="${category}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [category]);
   const [account,    setAccount]    = useState(() => {
     if (expense?.account) return expense.account;
     const src = availableAccounts ?? ACCOUNTS;
@@ -411,12 +417,14 @@ export default function ExpenseModal({ expense, onSave, onAutoSave, onClose, onD
                 Category <span className="text-red-400">*</span>
               </label>
               <div
+                ref={categoryRowRef}
                 className={`flex gap-2 overflow-x-auto pb-1 ${errors.category ? 'ring-2 ring-red-300 rounded-xl p-1' : ''}`}
                 style={{ scrollbarWidth: 'none' }}
               >
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat.id}
+                    data-cat-id={cat.id}
                     type="button"
                     onClick={() => !readOnly && (categoryManuallySetRef.current = true, setCategory(cat.id), setErrors(e => ({ ...e, category: undefined })))}
                     className={`flex-shrink-0 flex flex-col items-center gap-1 w-14 py-2 rounded-xl border-2 transition-all ${

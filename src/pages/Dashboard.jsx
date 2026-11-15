@@ -137,12 +137,12 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
 
   const [aiProjection, setAiProjection] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const aiFetchedRef = useRef(false); // prevent double-fetch within same mount
+  const aiFetchingMonthRef = useRef(null); // tracks which month is currently being fetched
 
   useEffect(() => {
     if ((projectionModel ?? 'statistical') !== 'ai') { setAiProjection(null); return; }
 
-    // Check localStorage cache — only re-fetch if older than 6 hours or different day
+    // Check localStorage cache — only re-fetch if older than 6 hours
     const lsKey = `fl_ai_proj_${month}`;
     try {
       const cached = JSON.parse(localStorage.getItem(lsKey) ?? 'null');
@@ -152,8 +152,8 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
       }
     } catch {}
 
-    if (aiFetchedRef.current) return; // already fetching this mount
-    aiFetchedRef.current = true;
+    if (aiFetchingMonthRef.current === month) return; // already fetching this month
+    aiFetchingMonthRef.current = month;
 
     const [y, m] = month.split('-').map(Number);
     const totalDays = new Date(y, m, 0).getDate();

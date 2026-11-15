@@ -138,6 +138,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
   const [aiProjection, setAiProjection] = useState(null); // { projected, note } | null
   const [aiLoading, setAiLoading] = useState(false);
   const aiRequestRef = useRef(0);
+  const aiCacheRef = useRef({}); // { [month+model]: result }
 
   useEffect(() => {
     console.log('[AI projection] model:', projectionModel);
@@ -157,6 +158,13 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
         .filter(e => e.date.startsWith(ym) && e.type !== 'income' && e.type !== 'investment' && !isUnbudgeted(e))
         .reduce((s, e) => s + (e.currency === 'SGD' ? e.amount : (e.sgdAmount ?? 0)), 0);
       pastMonths.push({ month: ym, total });
+    }
+
+    // Return cached result for this month+model without re-fetching
+    const cacheKey = `${month}:${projectionModel}`;
+    if (aiCacheRef.current[cacheKey]) {
+      setAiProjection(aiCacheRef.current[cacheKey]);
+      return;
     }
 
     const reqId = ++aiRequestRef.current;
@@ -186,8 +194,8 @@ Respond ONLY with JSON (no markdown): {"projected": <number>, "note": "<max 60 c
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 128 } }),
           }
         );
-        if (r.status === 503 && attempt < retries) {
-          await new Promise(res => setTimeout(res, 2000 * (attempt + 1)));
+        if ((r.status === 503 || r.status === 429) && attempt < retries) {
+          await new Promise(res => setTimeout(res, 3000 * (attempt + 1)));
           continue;
         }
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -200,7 +208,12 @@ Respond ONLY with JSON (no markdown): {"projected": <number>, "note": "<max 60 c
     };
 
     tryGemini()
-      .then(data => { if (reqId === aiRequestRef.current) setAiProjection(data); })
+      .then(data => {
+        if (reqId === aiRequestRef.current) {
+          aiCacheRef.current[cacheKey] = data;
+          setAiProjection(data);
+        }
+      })
       .catch(err => { console.error('[AI projection]', err.message); })
       .finally(() => { setAiLoading(false); });
   }, [projectionModel, month]); // eslint-disable-line react-hooks/exhaustive-deps

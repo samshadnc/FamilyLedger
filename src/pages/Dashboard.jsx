@@ -18,6 +18,16 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
   const shoppingInputRef = useRef(null);
   const uncheckedCount = (shoppingItems ?? []).filter(i => !i.checked).length;
 
+  useEffect(() => {
+    if (!showShoppingList) return;
+    history.pushState({ fl: 'shopping' }, '');
+    const onPop = () => setShowShoppingList(false);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [showShoppingList]);
+
+  const closeShoppingList = () => { history.back(); };
+
   const {
     totalExpense, totalIncome, investmentTotal, byCategoryByCur,
     byPerson, recentExpenses, dailyData, categoryTotals,
@@ -671,7 +681,7 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
 
       {/* Shopping List bottom sheet */}
       {showShoppingList && (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowShoppingList(false)}>
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={closeShoppingList}>
           <div className="w-full bg-white rounded-t-3xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
@@ -688,7 +698,7 @@ Respond ONLY with JSON: {"projected":<number>,"note":"<max 50 chars>"}`;
                 {(shoppingItems ?? []).some(i => i.checked) && (
                   <button onClick={onClearShoppingChecked} className="text-xs text-gray-400 font-medium">Clear done</button>
                 )}
-                <button onClick={() => setShowShoppingList(false)} className="text-gray-400 w-8 h-8 flex items-center justify-center">
+                <button onClick={closeShoppingList} className="text-gray-400 w-8 h-8 flex items-center justify-center">
                   <X size={18} />
                 </button>
               </div>

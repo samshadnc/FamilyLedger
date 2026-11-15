@@ -562,19 +562,21 @@ export default function App() {
       showModalRef.current = false; setShowModal(false); setEditTarget(null); closeSubNav(); return;
     }
     if (!profile) return;
-    // data.addedBy/addedByName may be set by the modal (proxy entry) — honour them
-    const payload = {
-      addedBy: profile.uid,
-      addedByName: profile.displayName,
-      ...data,
-      // if proxy UID is unknown (null), fall back to current user's UID so Firestore doesn't store null
-      ...(data.addedBy === null ? { addedBy: profile.uid } : {}),
-      updatedAt: serverTimestamp(),
-    };
     if (editTarget) {
-      await updateDoc(doc(db, 'expenses', editTarget.id), payload);
+      // Editing: preserve original author — only update the fields that changed
+      const { addedBy: _a, addedByName: _b, ...rest } = data;
+      await updateDoc(doc(db, 'expenses', editTarget.id), { ...rest, updatedAt: serverTimestamp() });
     } else {
-      await addDoc(collection(db, 'expenses'), { ...payload, createdAt: serverTimestamp() });
+      // New entry: set author (proxy user if set, else current user)
+      const payload = {
+        addedBy: profile.uid,
+        addedByName: profile.displayName,
+        ...data,
+        ...(data.addedBy === null ? { addedBy: profile.uid } : {}),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, 'expenses'), payload);
     }
     showModalRef.current = false; setShowModal(false); setEditTarget(null); closeSubNav();
     // If the saved entry is in a different month than the current view, switch to it
@@ -586,8 +588,8 @@ export default function App() {
 
   const handleAutoSave = async (data) => {
     if (!profile || !editTarget || isDemo) return;
-    const payload = { ...data, addedBy: profile.uid, addedByName: profile.displayName, updatedAt: serverTimestamp() };
-    await updateDoc(doc(db, 'expenses', editTarget.id), payload);
+    const { addedBy: _a, addedByName: _b, ...rest } = data;
+    await updateDoc(doc(db, 'expenses', editTarget.id), { ...rest, updatedAt: serverTimestamp() });
   };
 
   const openAdd  = () => { setEditTarget(null); showModalRef.current = true; setShowModal(true); pushSubNav(); };

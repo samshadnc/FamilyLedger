@@ -140,6 +140,7 @@ export default function Dashboard({ expenses, allExpenses, month, onAdd, onEdit,
   const aiRequestRef = useRef(0);
 
   useEffect(() => {
+    console.log('[AI projection] model:', projectionModel);
     if ((projectionModel ?? 'statistical') !== 'ai') return;
     const [y, m] = month.split('-').map(Number);
     const totalDays = new Date(y, m, 0).getDate();

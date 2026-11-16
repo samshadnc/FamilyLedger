@@ -191,6 +191,11 @@ export default function App() {
   const [selectedAccount,  setSelectedAccount] = useState(null);  // account id or null
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
+  const [allExpReady,      setAllExpReady]     = useState(false);
+  const [pendingTravelCheck, setPendingTravelCheck] = useState(null); // ISO date when away started
+  const [awayBanner,       setAwayBanner]      = useState(null);      // message string
+  const prevPlaceIdRef = useRef(localStorage.getItem('fl_last_place_id')); // null | '' | 'id'
+  const [placeDetected,    setPlaceDetected]   = useState(false);
 
   const filterActiveRef = useRef(false);
 
@@ -446,6 +451,7 @@ export default function App() {
       setAllExpenses(snap.docs.map(d => ({ ...d.data(), id: d.id })));
       if (!allExpInitializedRef.current) {
         allExpInitializedRef.current = true;
+        setAllExpReady(true);
         const lastSeen = lastSeenRef.current;
         if (lastSeen > 0) {
           const missed = snap.docs.filter(d => {
@@ -585,9 +591,10 @@ export default function App() {
 
   // Detect current network and match against saved places
   useEffect(() => {
-    if (isDemo || !places.length) { setCurrentPlace(null); return; }
+    if (isDemo || !places.length) { setCurrentPlace(null); setPlaceDetected(true); return; }
     detectSubnet().then(result => {
       setCurrentPlace(result ? matchPlace(result.subnet, places) : null);
+      setPlaceDetected(true);
     });
   }, [places, isDemo]);
 
@@ -596,6 +603,47 @@ export default function App() {
     if (!places.length || isDemo || typeof Notification === 'undefined') return;
     if (Notification.permission === 'default') Notification.requestPermission();
   }, [places, isDemo]);
+
+  // Detect place transitions and trigger away-expense check
+  useEffect(() => {
+    if (!placeDetected || isDemo) return;
+    const prevId = prevPlaceIdRef.current; // null=never set | ''=was away | 'id'=known place
+    const currentId = currentPlace?.id ?? '';
+
+    if (prevId === currentId) return; // no change
+
+    if (!currentId && prevId) {
+      // Left a known place → start away timer (only if not already running)
+      if (!localStorage.getItem('fl_away_start_date')) {
+        localStorage.setItem('fl_away_start_date', new Date().toISOString().slice(0, 10));
+      }
+    } else if (currentId && prevId !== null && !prevId) {
+      // Returned to a known place after being away → queue expense check
+      const awayStart = localStorage.getItem('fl_away_start_date');
+      if (awayStart) {
+        setPendingTravelCheck(awayStart);
+        localStorage.removeItem('fl_away_start_date');
+      }
+    }
+
+    prevPlaceIdRef.current = currentId;
+    localStorage.setItem('fl_last_place_id', currentId);
+  }, [placeDetected, currentPlace, isDemo]);
+
+  // Check for missing expenses during away period
+  useEffect(() => {
+    if (!pendingTravelCheck || !allExpReady) return;
+    const awayExpenses = allExpenses.filter(e => e.date >= pendingTravelCheck);
+    setPendingTravelCheck(null);
+    if (!awayExpenses.length) {
+      const dateLabel = new Date(pendingTravelCheck + 'T00:00:00').toLocaleDateString('en-SG', { dateStyle: 'medium' });
+      const msg = `You were out since ${dateLabel} with no expenses logged.`;
+      setAwayBanner(msg);
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('FamilyLedger', { body: msg + ' Add them now?', icon: '/vite.svg', tag: 'fl-away-check' });
+      }
+    }
+  }, [pendingTravelCheck, allExpReady, allExpenses]);
 
   // Fire notification rules every minute when at a known place
   useEffect(() => {
@@ -820,6 +868,20 @@ export default function App() {
                 {name}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Away-expense reminder banner */}
+      {awayBanner && !isDemo && (
+        <div className="fixed left-1/2 -translate-x-1/2 w-full max-w-md z-50 bg-orange-500 text-white px-4 py-2.5 flex items-center justify-between shadow-md" style={{ top: showBackupBanner ? '44px' : '0' }}>
+          <span className="text-sm font-medium flex-1 mr-2">🏠 {awayBanner}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => { setAwayBanner(null); openAdd(); }}
+              className="text-xs font-bold bg-white text-orange-700 px-2.5 py-1 rounded-full"
+            >Add</button>
+            <button onClick={() => setAwayBanner(null)} className="text-white opacity-80 text-lg leading-none">×</button>
           </div>
         </div>
       )}

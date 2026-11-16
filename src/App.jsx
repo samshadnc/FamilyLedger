@@ -604,46 +604,58 @@ export default function App() {
     if (Notification.permission === 'default') Notification.requestPermission();
   }, [places, isDemo]);
 
-  // Detect place transitions and trigger away-expense check
+  // Record last-seen timestamp for each known place
   useEffect(() => {
-    if (!placeDetected || isDemo) return;
-    const prevId = prevPlaceIdRef.current; // null=never set | ''=was away | 'id'=known place
-    const currentId = currentPlace?.id ?? '';
-
-    if (prevId === currentId) return; // no change
-
-    if (!currentId && prevId) {
-      // Left a known place → start away timer (only if not already running)
-      if (!localStorage.getItem('fl_away_start_date')) {
-        localStorage.setItem('fl_away_start_date', new Date().toISOString().slice(0, 10));
-      }
-    } else if (currentId && prevId !== null && !prevId) {
-      // Returned to a known place after being away → queue expense check
-      const awayStart = localStorage.getItem('fl_away_start_date');
-      if (awayStart) {
-        setPendingTravelCheck(awayStart);
-        localStorage.removeItem('fl_away_start_date');
-      }
-    }
-
-    prevPlaceIdRef.current = currentId;
-    localStorage.setItem('fl_last_place_id', currentId);
+    if (!placeDetected || isDemo || !currentPlace) return;
+    try { localStorage.setItem(`fl_place_seen_${currentPlace.id}`, Date.now().toString()); } catch {}
   }, [placeDetected, currentPlace, isDemo]);
 
-  // Check for missing expenses during away period
+  // On place transition: fire arrival rules for the new place
+  useEffect(() => {
+    if (!placeDetected || isDemo) return;
+    const prevId = prevPlaceIdRef.current;
+    const currentId = currentPlace?.id ?? '';
+    if (prevId === currentId) return;
+
+    prevPlaceIdRef.current = currentId;
+    try { localStorage.setItem('fl_last_place_id', currentId); } catch {}
+
+    if (!currentId) return; // moved to unknown — nothing to check on departure
+
+    // Arrived at a known place — queue arrival rules to run once expenses load
+    const arrivalRules = (currentPlace?.notificationRules ?? []).filter(r => r.type === 'arrival' && r.enabled);
+    if (arrivalRules.length) {
+      const prevSeenAt = prevId ? (localStorage.getItem(`fl_place_seen_${prevId}`) ?? null) : null;
+      const today = new Date().toISOString().slice(0, 10);
+      setPendingTravelCheck({ rules: arrivalRules, today, prevSeenAt: prevSeenAt ? parseInt(prevSeenAt, 10) : null });
+    }
+  }, [placeDetected, currentPlace, isDemo]);
+
+  // Evaluate arrival rules once expenses are ready
   useEffect(() => {
     if (!pendingTravelCheck || !allExpReady) return;
-    const awayExpenses = allExpenses.filter(e => e.date >= pendingTravelCheck);
+    const { rules, today, prevSeenAt } = pendingTravelCheck;
     setPendingTravelCheck(null);
-    if (!awayExpenses.length) {
-      const dateLabel = new Date(pendingTravelCheck + 'T00:00:00').toLocaleDateString('en-SG', { dateStyle: 'medium' });
-      const msg = `You were out since ${dateLabel} with no expenses logged.`;
+
+    for (const rule of rules) {
+      let shouldFire = true;
+      if (rule.checkExpenses) {
+        if (rule.checkWindow === 'since_departure' && prevSeenAt) {
+          const prevDate = new Date(prevSeenAt).toISOString().slice(0, 10);
+          shouldFire = !allExpenses.some(e => e.date >= prevDate && (e.createdAt?.seconds ?? 0) * 1000 >= prevSeenAt);
+        } else {
+          shouldFire = !allExpenses.some(e => e.date === today);
+        }
+      }
+      if (!shouldFire) continue;
+      const msg = rule.message || `You arrived at ${currentPlace?.name ?? 'a place'} with no expenses logged.`;
       setAwayBanner(msg);
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('FamilyLedger', { body: msg + ' Add them now?', icon: '/vite.svg', tag: 'fl-away-check' });
+        new Notification('FamilyLedger', { body: msg, icon: '/vite.svg', tag: 'fl-arrival-check' });
       }
+      break; // show one at a time
     }
-  }, [pendingTravelCheck, allExpReady, allExpenses]);
+  }, [pendingTravelCheck, allExpReady, allExpenses, currentPlace]);
 
   // Fire notification rules every minute when at a known place
   useEffect(() => {

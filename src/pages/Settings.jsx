@@ -1020,13 +1020,10 @@ function PlaceForm({ initial, onSave, onDelete, onCancel }) {
     if (!subnets.includes(result.subnet)) setSubnets(prev => [...prev, result.subnet]);
   };
 
-  const addRule = () => setRules(prev => [...prev, {
-    id: Date.now().toString(),
-    time: '20:00',
-    days: ['sun','mon','tue','wed','thu','fri','sat'],
-    message: 'Add today\'s expenses',
-    enabled: true,
-  }]);
+  const addRule = (type) => setRules(prev => [...prev, type === 'arrival'
+    ? { id: Date.now().toString(), type: 'arrival', checkExpenses: true, checkWindow: 'today', message: '', enabled: true }
+    : { id: Date.now().toString(), type: 'time', time: '20:00', days: ['sun','mon','tue','wed','thu','fri','sat'], message: 'Add today\'s expenses', enabled: true }
+  ]);
 
   const updateRule = (id, patch) => setRules(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
   const removeRule = (id) => setRules(prev => prev.filter(r => r.id !== id));
@@ -1087,52 +1084,88 @@ function PlaceForm({ initial, onSave, onDelete, onCancel }) {
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notification rules</label>
-          <button onClick={addRule} className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full">+ Add</button>
+          <div className="flex gap-1.5">
+            <button onClick={() => addRule('arrival')} className="text-xs text-orange-600 font-semibold bg-orange-50 px-2.5 py-0.5 rounded-full">+ On arrival</button>
+            <button onClick={() => addRule('time')} className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full">+ At time</button>
+          </div>
         </div>
         {!rules.length && (
-          <p className="text-xs text-gray-400">No notifications. Add a rule to get reminded when at this place.</p>
+          <p className="text-xs text-gray-400">No rules yet. "On arrival" fires when you reach this place. "At time" fires at a scheduled time.</p>
         )}
         {rules.map(rule => (
           <div key={rule.id} className="border border-gray-100 rounded-xl p-3 mb-2">
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="time"
-                value={rule.time}
-                onChange={e => updateRule(rule.id, { time: e.target.value })}
-                className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              />
+            {/* Header: type badge + enable toggle + delete */}
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${rule.type === 'arrival' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                {rule.type === 'arrival' ? 'On arrival' : 'At time'}
+              </span>
+              <div className="flex-1" />
               <button
                 onClick={() => updateRule(rule.id, { enabled: !rule.enabled })}
                 className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${rule.enabled ? 'bg-green-500' : 'bg-gray-200'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${rule.enabled ? 'translate-x-5' : ''}`} />
               </button>
-              <button
-                onClick={() => removeRule(rule.id)}
-                className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center text-red-400 flex-shrink-0"
-              >
+              <button onClick={() => removeRule(rule.id)} className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center text-red-400 flex-shrink-0">
                 <X size={10} />
               </button>
             </div>
-            <div className="flex gap-1 mb-2">
-              {DAYS.map((d, i) => (
-                <button
-                  key={d}
-                  onClick={() => {
-                    const days = rule.days.includes(d) ? rule.days.filter(x => x !== d) : [...rule.days, d];
-                    updateRule(rule.id, { days });
-                  }}
-                  className={`flex-1 h-7 rounded-full text-xs font-bold transition-colors ${rule.days.includes(d) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
-                >
-                  {DAY_LABELS[i]}
-                </button>
-              ))}
-            </div>
+
+            {rule.type === 'arrival' ? (
+              /* Arrival rule fields */
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Only if no expenses logged</span>
+                  <button
+                    onClick={() => updateRule(rule.id, { checkExpenses: !rule.checkExpenses })}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${rule.checkExpenses ? 'bg-indigo-500' : 'bg-gray-200'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${rule.checkExpenses ? 'translate-x-5' : ''}`} />
+                  </button>
+                </div>
+                {rule.checkExpenses && (
+                  <select
+                    value={rule.checkWindow ?? 'today'}
+                    onChange={e => updateRule(rule.id, { checkWindow: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+                  >
+                    <option value="today">No expenses today</option>
+                    <option value="since_departure">No expenses since I left previous place</option>
+                  </select>
+                )}
+              </div>
+            ) : (
+              /* Time rule fields */
+              <div className="flex flex-col gap-2">
+                <input
+                  type="time"
+                  value={rule.time ?? '20:00'}
+                  onChange={e => updateRule(rule.id, { time: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <div className="flex gap-1">
+                  {DAYS.map((d, i) => (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        const days = (rule.days ?? []).includes(d) ? rule.days.filter(x => x !== d) : [...(rule.days ?? []), d];
+                        updateRule(rule.id, { days });
+                      }}
+                      className={`flex-1 h-7 rounded-full text-xs font-bold transition-colors ${(rule.days ?? []).includes(d) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+                    >
+                      {DAY_LABELS[i]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Message — shared by both types */}
             <input
-              value={rule.message}
+              value={rule.message ?? ''}
               onChange={e => updateRule(rule.id, { message: e.target.value })}
-              placeholder="Notification message"
-              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              placeholder={rule.type === 'arrival' ? 'e.g. Log your commute expense' : 'Notification message'}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 mt-2"
             />
           </div>
         ))}

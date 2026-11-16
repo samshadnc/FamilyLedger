@@ -18,7 +18,6 @@ import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, 
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
 import { shouldShowBackupReminder } from './utils/backupReminder';
-import { detectSubnet, matchPlace } from './utils/networkDetection';
 
 // Real October 2026 data imported from Axio (Samshad) + fake Sahla entries
 const DEMO_EXPENSES = [
@@ -191,11 +190,6 @@ export default function App() {
   const [selectedAccount,  setSelectedAccount] = useState(null);  // account id or null
   const [selectedPayee,    setSelectedPayee]   = useState(null);  // payee string or null
   const [demoUser,         setDemoUser]        = useState('Samshad'); // demo profile switcher
-  const [allExpReady,      setAllExpReady]     = useState(false);
-  const [pendingTravelCheck, setPendingTravelCheck] = useState(null); // ISO date when away started
-  const [awayBanner,       setAwayBanner]      = useState(null);      // message string
-  const prevPlaceIdRef = useRef(localStorage.getItem('fl_last_place_id')); // null | '' | 'id'
-  const [placeDetected,    setPlaceDetected]   = useState(false);
 
   const filterActiveRef = useRef(false);
 
@@ -451,7 +445,6 @@ export default function App() {
       setAllExpenses(snap.docs.map(d => ({ ...d.data(), id: d.id })));
       if (!allExpInitializedRef.current) {
         allExpInitializedRef.current = true;
-        setAllExpReady(true);
         const lastSeen = lastSeenRef.current;
         if (lastSeen > 0) {
           const missed = snap.docs.filter(d => {
@@ -574,126 +567,6 @@ export default function App() {
     const next = shoppingItems.filter(i => !i.checked);
     setShoppingItems(next);
     await setDoc(shoppingListRef, { items: next }, { merge: true });
-  };
-
-  // Places & location-based notifications
-  const [places, setPlaces] = useState([]);
-  const [currentPlace, setCurrentPlace] = useState(null);
-
-  useEffect(() => {
-    if (isDemo || !user) return;
-    const ref = doc(db, 'household', 'places');
-    const unsub = onSnapshot(ref, snap => {
-      setPlaces(snap.exists() ? (snap.data().places ?? []) : []);
-    });
-    return unsub;
-  }, [user, isDemo]);
-
-  // Detect current network and match against saved places
-  useEffect(() => {
-    if (isDemo || !places.length) { setCurrentPlace(null); setPlaceDetected(true); return; }
-    detectSubnet().then(result => {
-      setCurrentPlace(result ? matchPlace(result.subnet, places) : null);
-      setPlaceDetected(true);
-    });
-  }, [places, isDemo]);
-
-  // Request notification permission when places are configured
-  useEffect(() => {
-    if (!places.length || isDemo || typeof Notification === 'undefined') return;
-    if (Notification.permission === 'default') Notification.requestPermission();
-  }, [places, isDemo]);
-
-  // Record last-seen timestamp for each known place
-  useEffect(() => {
-    if (!placeDetected || isDemo || !currentPlace) return;
-    try { localStorage.setItem(`fl_place_seen_${currentPlace.id}`, Date.now().toString()); } catch {}
-  }, [placeDetected, currentPlace, isDemo]);
-
-  // On place transition: fire arrival rules for the new place
-  useEffect(() => {
-    if (!placeDetected || isDemo) return;
-    const prevId = prevPlaceIdRef.current;
-    const currentId = currentPlace?.id ?? '';
-    if (prevId === currentId) return;
-
-    prevPlaceIdRef.current = currentId;
-    try { localStorage.setItem('fl_last_place_id', currentId); } catch {}
-
-    if (!currentId) return; // moved to unknown — nothing to check on departure
-
-    // Arrived at a known place — queue arrival rules to run once expenses load
-    const arrivalRules = (currentPlace?.notificationRules ?? []).filter(r => r.type === 'arrival' && r.enabled);
-    if (arrivalRules.length) {
-      const prevSeenAt = prevId ? (localStorage.getItem(`fl_place_seen_${prevId}`) ?? null) : null;
-      const today = new Date().toISOString().slice(0, 10);
-      setPendingTravelCheck({ rules: arrivalRules, today, prevSeenAt: prevSeenAt ? parseInt(prevSeenAt, 10) : null });
-    }
-  }, [placeDetected, currentPlace, isDemo]);
-
-  // Evaluate arrival rules once expenses are ready
-  useEffect(() => {
-    if (!pendingTravelCheck || !allExpReady) return;
-    const { rules, today, prevSeenAt } = pendingTravelCheck;
-    setPendingTravelCheck(null);
-
-    for (const rule of rules) {
-      let shouldFire = true;
-      if (rule.checkExpenses) {
-        if (rule.checkWindow === 'since_departure' && prevSeenAt) {
-          const prevDate = new Date(prevSeenAt).toISOString().slice(0, 10);
-          shouldFire = !allExpenses.some(e => e.date >= prevDate && (e.createdAt?.seconds ?? 0) * 1000 >= prevSeenAt);
-        } else {
-          shouldFire = !allExpenses.some(e => e.date === today);
-        }
-      }
-      if (!shouldFire) continue;
-      const msg = rule.message || `You arrived at ${currentPlace?.name ?? 'a place'} with no expenses logged.`;
-      setAwayBanner(msg);
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('FamilyLedger', { body: msg, icon: '/vite.svg', tag: 'fl-arrival-check' });
-      }
-      break; // show one at a time
-    }
-  }, [pendingTravelCheck, allExpReady, allExpenses, currentPlace]);
-
-  // Fire notification rules every minute when at a known place
-  useEffect(() => {
-    if (!currentPlace || isDemo) return;
-    const check = () => {
-      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      const dayStr = ['sun','mon','tue','wed','thu','fri','sat'][now.getDay()];
-      for (const rule of currentPlace.notificationRules ?? []) {
-        if (!rule.enabled || rule.time !== timeStr || !(rule.days ?? []).includes(dayStr)) continue;
-        new Notification('FamilyLedger', {
-          body: rule.message || 'Remember to add your expenses',
-          icon: '/vite.svg',
-          tag: `fl-place-${currentPlace.id}-${rule.id}`,
-        });
-      }
-    };
-    const interval = setInterval(check, 60000);
-    return () => clearInterval(interval);
-  }, [currentPlace, isDemo]);
-
-  const placesDocRef = doc(db, 'household', 'places');
-
-  const handleSavePlace = async (place) => {
-    if (isDemo) return;
-    const next = place.id
-      ? places.map(p => p.id === place.id ? place : p)
-      : [...places, { ...place, id: Date.now().toString() }];
-    setPlaces(next);
-    await setDoc(placesDocRef, { places: next });
-  };
-
-  const handleDeletePlace = async (id) => {
-    if (isDemo) return;
-    const next = places.filter(p => p.id !== id);
-    setPlaces(next);
-    await setDoc(placesDocRef, { places: next });
   };
 
   // Last backup date — read from localStorage, updated when the user manually backs up
@@ -884,20 +757,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Away-expense reminder banner */}
-      {awayBanner && !isDemo && (
-        <div className="fixed left-1/2 -translate-x-1/2 w-full max-w-md z-50 bg-orange-500 text-white px-4 py-2.5 flex items-center justify-between shadow-md" style={{ top: showBackupBanner ? '44px' : '0' }}>
-          <span className="text-sm font-medium flex-1 mr-2">🏠 {awayBanner}</span>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => { setAwayBanner(null); openAdd(); }}
-              className="text-xs font-bold bg-white text-orange-700 px-2.5 py-1 rounded-full"
-            >Add</button>
-            <button onClick={() => setAwayBanner(null)} className="text-white opacity-80 text-lg leading-none">×</button>
-          </div>
-        </div>
-      )}
-
       {/* Backup reminder banner */}
       {showBackupBanner && !isDemo && (
         <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between shadow-md">
@@ -957,10 +816,6 @@ export default function App() {
             recurringRules={recurringRules}
             onSaveRecurring={handleSaveRecurring}
             onDeleteRecurring={handleDeleteRecurring}
-            places={places}
-            currentPlace={currentPlace}
-            onSavePlace={handleSavePlace}
-            onDeletePlace={handleDeletePlace}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail

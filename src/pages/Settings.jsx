@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { uploadToDrive } from '../utils/driveBackup';
 import { registerBackupReminder, unregisterBackupReminder, isBackupReminderEnabled } from '../utils/backupReminder';
-import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun } from 'lucide-react';
+import { ChevronLeft, X, Plus, Check, LogOut, Moon, Sun, Wifi } from 'lucide-react';
+import { detectSubnet } from '../utils/networkDetection';
 import { AVATARS, CATEGORIES, DEFAULT_PRESETS, SETTINGS_OWNER, UNBUDGETED_TAG, getCategoryById, presetButtonText } from '../constants';
 
 function AvatarImg({ name, size = 14 }) {
@@ -55,7 +56,7 @@ function PresetFields({ value, onChange }) {
   );
 }
 
-export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone, scrollToBackup, recurringRules, onSaveRecurring, onDeleteRecurring }) {
+export default function Settings({ settings, onSave, onBack, dark, onToggleDark, profile, onLogout, isDemo, isOwner, allExpenses, lastBackupDate, onBackupDone, scrollToBackup, recurringRules, onSaveRecurring, onDeleteRecurring, places, currentPlace, onSavePlace, onDeletePlace }) {
   const [newTag, setNewTag] = useState('');
   const [showAddTag, setShowAddTag] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(null); // person name or null
@@ -73,6 +74,8 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
   useEffect(() => { isBackupReminderEnabled().then(setReminderEnabled); }, []);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
+  const [showPlaceModal, setShowPlaceModal] = useState(false);
+  const [editingPlace, setEditingPlace] = useState(null);
 
   const backupSectionRef = useRef(null);
   useEffect(() => {
@@ -830,6 +833,49 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
         </div>
       )}
 
+      {/* ── Places & Notifications ───────────────────── */}
+      {!isDemo && (
+        <div className="mx-4 mb-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
+            <div>
+              <p className="text-sm font-bold text-gray-900">Places & Notifications</p>
+              {currentPlace ? (
+                <p className="text-xs text-green-600 mt-0.5">{currentPlace.icon ?? '📍'} Currently: {currentPlace.name}</p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5">Network-based reminders</p>
+              )}
+            </div>
+            <button
+              onClick={() => { setEditingPlace(null); setShowPlaceModal(true); }}
+              className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full active:opacity-70"
+            >+ Add</button>
+          </div>
+          {!(places ?? []).length ? (
+            <div className="px-5 py-4 text-sm text-gray-400">
+              Add a place (Home, Office…) to get reminders based on your WiFi network.
+            </div>
+          ) : (
+            (places ?? []).map(p => (
+              <div key={p.id} className="px-5 py-3 border-t border-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">{p.icon ?? '📍'}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{p.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {(p.subnets ?? []).length} network{(p.subnets ?? []).length !== 1 ? 's' : ''} · {(p.notificationRules ?? []).filter(r => r.enabled).length} active rule{(p.notificationRules ?? []).filter(r => r.enabled).length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setEditingPlace(p); setShowPlaceModal(true); }}
+                  className="text-xs text-indigo-500 font-medium px-3 py-1 rounded-full hover:bg-indigo-50"
+                >Edit</button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {/* ── Logout ───────────────────────────────────── */}
       {!isDemo && (
         <div className="mx-4 mb-6">
@@ -840,6 +886,24 @@ export default function Settings({ settings, onSave, onBack, dark, onToggleDark,
             <LogOut size={17} />
             Sign Out
           </button>
+        </div>
+      )}
+
+      {/* Place editor modal */}
+      {showPlaceModal && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.4)' }}>
+          <div className="w-full bg-white rounded-t-3xl p-5 pb-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-gray-900">{editingPlace?.id ? 'Edit Place' : 'New Place'}</h2>
+              <button onClick={() => setShowPlaceModal(false)} className="text-gray-400"><X size={20} /></button>
+            </div>
+            <PlaceForm
+              initial={editingPlace}
+              onSave={(place) => { onSavePlace(place); setShowPlaceModal(false); }}
+              onDelete={editingPlace?.id ? () => { onDeletePlace(editingPlace.id); setShowPlaceModal(false); } : null}
+              onCancel={() => setShowPlaceModal(false)}
+            />
+          </div>
         </div>
       )}
 
@@ -931,6 +995,158 @@ function RecurringForm({ initial, onSave, onDelete, onCancel }) {
           </div>
         ) : (
           <button onClick={() => setConfirmDelete(true)} className="w-full text-red-500 font-semibold text-sm py-2">Delete recurring rule</button>
+        )
+      )}
+    </div>
+  );
+}
+
+function PlaceForm({ initial, onSave, onDelete, onCancel }) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [icon, setIcon] = useState(initial?.icon ?? '📍');
+  const [subnets, setSubnets] = useState(initial?.subnets ?? []);
+  const [rules, setRules] = useState(initial?.notificationRules ?? []);
+  const [detecting, setDetecting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inputCls = 'w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white';
+  const DAYS = ['sun','mon','tue','wed','thu','fri','sat'];
+  const DAY_LABELS = ['S','M','T','W','T','F','S'];
+
+  const handleDetect = async () => {
+    setDetecting(true);
+    const result = await detectSubnet();
+    setDetecting(false);
+    if (!result) return;
+    if (!subnets.includes(result.subnet)) setSubnets(prev => [...prev, result.subnet]);
+  };
+
+  const addRule = () => setRules(prev => [...prev, {
+    id: Date.now().toString(),
+    time: '20:00',
+    days: ['sun','mon','tue','wed','thu','fri','sat'],
+    message: 'Add today\'s expenses',
+    enabled: true,
+  }]);
+
+  const updateRule = (id, patch) => setRules(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+  const removeRule = (id) => setRules(prev => prev.filter(r => r.id !== id));
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSave({ ...(initial ?? {}), name: name.trim(), icon, subnets, notificationRules: rules });
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Name + icon */}
+      <div className="flex gap-3">
+        <div className="w-16">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Icon</label>
+          <input
+            value={icon}
+            onChange={e => setIcon(e.target.value)}
+            maxLength={2}
+            className="w-full text-center text-2xl border border-gray-200 rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Place name</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Home, Office" className={inputCls} />
+        </div>
+      </div>
+
+      {/* Networks */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">Networks (WiFi subnets)</label>
+        {subnets.map((s, i) => (
+          <div key={i} className="flex items-center gap-2 mb-2">
+            <code className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 font-mono text-gray-700">{s}</code>
+            <button
+              onClick={() => setSubnets(prev => prev.filter((_, j) => j !== i))}
+              className="w-7 h-7 rounded-full bg-red-50 flex items-center justify-center text-red-400 flex-shrink-0"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={handleDetect}
+          disabled={detecting}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-indigo-300 text-indigo-600 text-sm font-medium active:opacity-70 disabled:opacity-50"
+        >
+          {detecting
+            ? <span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            : <Wifi size={15} />
+          }
+          {detecting ? 'Detecting…' : 'Detect current network'}
+        </button>
+        <p className="text-xs text-gray-400 mt-1.5">Be on this location's WiFi when detecting.</p>
+      </div>
+
+      {/* Notification rules */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notification rules</label>
+          <button onClick={addRule} className="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full">+ Add</button>
+        </div>
+        {!rules.length && (
+          <p className="text-xs text-gray-400">No notifications. Add a rule to get reminded when at this place.</p>
+        )}
+        {rules.map(rule => (
+          <div key={rule.id} className="border border-gray-100 rounded-xl p-3 mb-2">
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="time"
+                value={rule.time}
+                onChange={e => updateRule(rule.id, { time: e.target.value })}
+                className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+              <button
+                onClick={() => updateRule(rule.id, { enabled: !rule.enabled })}
+                className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${rule.enabled ? 'bg-green-500' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${rule.enabled ? 'translate-x-5' : ''}`} />
+              </button>
+              <button
+                onClick={() => removeRule(rule.id)}
+                className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center text-red-400 flex-shrink-0"
+              >
+                <X size={10} />
+              </button>
+            </div>
+            <div className="flex gap-1 mb-2">
+              {DAYS.map((d, i) => (
+                <button
+                  key={d}
+                  onClick={() => {
+                    const days = rule.days.includes(d) ? rule.days.filter(x => x !== d) : [...rule.days, d];
+                    updateRule(rule.id, { days });
+                  }}
+                  className={`flex-1 h-7 rounded-full text-xs font-bold transition-colors ${rule.days.includes(d) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+                >
+                  {DAY_LABELS[i]}
+                </button>
+              ))}
+            </div>
+            <input
+              value={rule.message}
+              onChange={e => updateRule(rule.id, { message: e.target.value })}
+              placeholder="Notification message"
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button onClick={handleSubmit} className="w-full bg-indigo-600 text-white font-bold rounded-xl py-3 text-sm mt-1">Save</button>
+      {onDelete && (
+        confirmDelete ? (
+          <div className="flex gap-2">
+            <button onClick={onCancel} className="flex-1 bg-gray-100 text-gray-700 font-bold rounded-xl py-3 text-sm">Cancel</button>
+            <button onClick={onDelete} className="flex-1 bg-red-500 text-white font-bold rounded-xl py-3 text-sm">Yes, Delete</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} className="w-full text-red-500 font-semibold text-sm py-2">Delete place</button>
         )
       )}
     </div>

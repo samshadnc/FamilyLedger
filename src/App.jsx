@@ -18,6 +18,7 @@ import { DEFAULT_TAGS, ACCOUNTS, CATEGORIES, DEFAULT_PRESETS, CLOUDINARY_CLOUD, 
 import { getReceiptBlob, deleteReceiptBlob } from './utils/receiptDb';
 import { useTheme } from './hooks/useTheme';
 import { shouldShowBackupReminder } from './utils/backupReminder';
+import { detectSubnet, matchPlace } from './utils/networkDetection';
 
 // Real October 2026 data imported from Axio (Samshad) + fake Sahla entries
 const DEMO_EXPENSES = [
@@ -569,6 +570,72 @@ export default function App() {
     await setDoc(shoppingListRef, { items: next }, { merge: true });
   };
 
+  // Places & location-based notifications
+  const [places, setPlaces] = useState([]);
+  const [currentPlace, setCurrentPlace] = useState(null);
+
+  useEffect(() => {
+    if (isDemo || !user) return;
+    const ref = doc(db, 'household', 'places');
+    const unsub = onSnapshot(ref, snap => {
+      setPlaces(snap.exists() ? (snap.data().places ?? []) : []);
+    });
+    return unsub;
+  }, [user, isDemo]);
+
+  // Detect current network and match against saved places
+  useEffect(() => {
+    if (isDemo || !places.length) { setCurrentPlace(null); return; }
+    detectSubnet().then(result => {
+      setCurrentPlace(result ? matchPlace(result.subnet, places) : null);
+    });
+  }, [places, isDemo]);
+
+  // Request notification permission when places are configured
+  useEffect(() => {
+    if (!places.length || isDemo || typeof Notification === 'undefined') return;
+    if (Notification.permission === 'default') Notification.requestPermission();
+  }, [places, isDemo]);
+
+  // Fire notification rules every minute when at a known place
+  useEffect(() => {
+    if (!currentPlace || isDemo) return;
+    const check = () => {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const dayStr = ['sun','mon','tue','wed','thu','fri','sat'][now.getDay()];
+      for (const rule of currentPlace.notificationRules ?? []) {
+        if (!rule.enabled || rule.time !== timeStr || !(rule.days ?? []).includes(dayStr)) continue;
+        new Notification('FamilyLedger', {
+          body: rule.message || 'Remember to add your expenses',
+          icon: '/vite.svg',
+          tag: `fl-place-${currentPlace.id}-${rule.id}`,
+        });
+      }
+    };
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, [currentPlace, isDemo]);
+
+  const placesDocRef = doc(db, 'household', 'places');
+
+  const handleSavePlace = async (place) => {
+    if (isDemo) return;
+    const next = place.id
+      ? places.map(p => p.id === place.id ? place : p)
+      : [...places, { ...place, id: Date.now().toString() }];
+    setPlaces(next);
+    await setDoc(placesDocRef, { places: next });
+  };
+
+  const handleDeletePlace = async (id) => {
+    if (isDemo) return;
+    const next = places.filter(p => p.id !== id);
+    setPlaces(next);
+    await setDoc(placesDocRef, { places: next });
+  };
+
   // Last backup date — read from localStorage, updated when the user manually backs up
   const [lastBackupDate, setLastBackupDate] = useState(() => {
     try { return localStorage.getItem('fl_last_drive_backup') ?? null; } catch { return null; }
@@ -816,6 +883,10 @@ export default function App() {
             recurringRules={recurringRules}
             onSaveRecurring={handleSaveRecurring}
             onDeleteRecurring={handleDeleteRecurring}
+            places={places}
+            currentPlace={currentPlace}
+            onSavePlace={handleSavePlace}
+            onDeletePlace={handleDeletePlace}
           />
         ) : tab === 'dashboard' && selectedCategory ? (
           <CategoryDetail
